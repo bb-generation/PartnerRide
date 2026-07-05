@@ -1,0 +1,39 @@
+name: Release build
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write # upload the APK to the release
+  packages: read  # karoo-ext from GitHub Packages
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # settings.gradle.kts resolves GitHub Packages credentials from these
+      USERNAME: ${{ github.actor }}
+      TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Run unit tests
+        run: ./gradlew test
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease
+
+      - name: Attach APK to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "partnergap-${{ github.event.release.tag_name }}.apk"
+          gh release upload "${{ github.event.release.tag_name }}" "partnergap-${{ github.event.release.tag_name }}.apk" --clobber
