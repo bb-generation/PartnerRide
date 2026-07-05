@@ -1,6 +1,6 @@
 [versions]
 # Version combo mirrors karoo-headwind (78*, builds karoo-ext 1.1.9 + compileSdk 35 in CI)
-agp = "8.5.2"
+agp = "8.13.2"
 kotlin = "2.0.0"
 
 androidxCore = "1.15.0"
