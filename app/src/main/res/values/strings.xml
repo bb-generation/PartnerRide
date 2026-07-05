@@ -1,0 +1,41 @@
+<resources>
+    <string name="app_name">PartnerGap</string>
+    <string name="extension_name">PartnerGap</string>
+
+    <string name="datatype_partner_gap_name">Partner Gap</string>
+    <string name="datatype_partner_gap_desc">Live straight-line distance to your riding partner, signed by who is ahead</string>
+
+    <string name="notification_channel">Partner link</string>
+    <string name="notification_text">Broadcasting position to partner</string>
+
+    <string name="setting_enabled">PartnerGap enabled</string>
+    <string name="setting_couple_code">Couple code</string>
+    <string name="couple_code_hint">maple-rocket-sunset</string>
+    <string name="couple_code_help">Both Karoos must use the exact same code. Generate it on one device and type it on the other.</string>
+    <string name="generate_code">Generate</string>
+    <string name="setting_alert">Gap alert</string>
+    <string name="setting_alert_threshold">Alert threshold (m)</string>
+    <string name="setting_scan_mode">Scan mode</string>
+    <string name="scan_mode_performance">Performance (default)</string>
+    <string name="scan_mode_battery">Battery Saver</string>
+    <string name="scan_mode_battery_note">Battery Saver can add a few seconds of update latency.</string>
+
+    <string name="status_title">Status</string>
+    <string name="status_broadcasting">Broadcasting</string>
+    <string name="status_partner_signal">Partner signal</string>
+    <string name="status_own_gps">Own GPS fix</string>
+    <string name="yes">yes</string>
+    <string name="no">no</string>
+    <string name="never">never</string>
+    <string name="seconds_ago">%1$d s ago</string>
+
+    <string name="status_permissions_missing">Missing Bluetooth/Location permissions</string>
+    <string name="status_bluetooth_off">Bluetooth is off</string>
+    <string name="status_gps_off">No GPS — location unavailable</string>
+    <string name="status_advertise_failed">Bluetooth advertising failed</string>
+    <string name="status_scan_failed">Bluetooth scan failed</string>
+    <string name="grant_permissions">Grant permissions</string>
+
+    <string name="alert_title">Partner gap!</string>
+    <string name="alert_detail">Gap is %1$d m</string>
+</resources>

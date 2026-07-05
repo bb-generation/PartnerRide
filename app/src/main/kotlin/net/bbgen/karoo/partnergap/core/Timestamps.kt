@@ -1,0 +1,52 @@
+package net.bbgen.karoo.partnergap.core
+
+/**
+ * Reconstruction of full GPS timestamps from the 2-byte mod-65536 value in the packet.
+ *
+ * All timestamps are GPS time from Location.getTime() (satellite-derived UTC) — never
+ * System.currentTimeMillis(), whose drift between the two devices would break the matching.
+ */
+object Timestamps {
+    private const val MOD = PacketCodec.TIME_MOD.toInt()
+    private const val HALF = MOD / 2
+
+    /**
+     * Returns the timestamp congruent to [timeMod] (mod 65536) that is closest to [referenceMs]
+     * (the local device's most recent Location.getTime()). Handles wraparound in both directions;
+     * unambiguous as long as the two fixes are within ±32.768 s of each other.
+     */
+    fun reconstruct(timeMod: Int, referenceMs: Long): Long {
+        val refMod = referenceMs.mod(PacketCodec.TIME_MOD).toInt()
+        var diff = timeMod - refMod
+        if (diff > HALF) diff -= MOD
+        if (diff <= -HALF) diff += MOD
+        return referenceMs + diff
+    }
+}
+
+/**
+ * Stale/replay protection: accepts a packet only if its fix timestamp is strictly newer than the
+ * last accepted one, under mod-65536 arithmetic ("newer" = within the forward half-window).
+ */
+class ReplayGuard {
+    private var lastTimeMod = -1
+
+    fun acceptIfNewer(timeMod: Int): Boolean {
+        if (lastTimeMod < 0) {
+            lastTimeMod = timeMod
+            return true
+        }
+        val forward = (timeMod - lastTimeMod).mod(PacketCodec.TIME_MOD.toInt())
+        if (forward in 1 until PacketCodec.TIME_MOD.toInt() / 2) {
+            lastTimeMod = timeMod
+            return true
+        }
+        return false
+    }
+
+    /** Forget history, e.g. after the partner has been out of range long enough for the
+     *  mod-65536 comparison to be meaningless. Required so recovery is never blocked by state. */
+    fun reset() {
+        lastTimeMod = -1
+    }
+}
