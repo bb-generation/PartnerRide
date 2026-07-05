@@ -5,6 +5,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+data class LatLon(val latDeg: Double, val lonDeg: Double)
+
 object Geo {
     private const val EARTH_RADIUS_M = 6_371_000.0
 
@@ -33,5 +35,26 @@ object Geo {
         if (d >= 180.0) d -= 360.0
         if (d < -180.0) d += 360.0
         return d
+    }
+
+    /**
+     * Dead-reckons a position [dtSeconds] forward along [bearingDeg] at [speedMps] using a
+     * flat-earth local tangent projection — sufficient for the few seconds of extrapolation
+     * the gap computation ever needs.
+     */
+    fun extrapolate(
+        latDeg: Double,
+        lonDeg: Double,
+        speedMps: Double,
+        bearingDeg: Double,
+        dtSeconds: Double,
+    ): LatLon {
+        val distance = speedMps * dtSeconds
+        val bearing = Math.toRadians(bearingDeg)
+        val dNorth = distance * cos(bearing)
+        val dEast = distance * sin(bearing)
+        val newLat = latDeg + Math.toDegrees(dNorth / EARTH_RADIUS_M)
+        val newLon = lonDeg + Math.toDegrees(dEast / (EARTH_RADIUS_M * cos(Math.toRadians(latDeg))))
+        return LatLon(newLat, newLon)
     }
 }

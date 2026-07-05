@@ -266,7 +266,15 @@ class PartnerLinkService : Service() {
 
     private fun onOwnFix(location: Location) {
         // location.getTime() = GPS time; never System.currentTimeMillis() (device clocks drift).
-        engine.onOwnFix(GpsFix(location.time, location.latitude, location.longitude))
+        engine.onOwnFix(
+            GpsFix(
+                timeMs = location.time,
+                latDeg = location.latitude,
+                lonDeg = location.longitude,
+                speedMps = if (location.hasSpeed()) location.speed.toDouble() else null,
+                bearingDeg = if (location.hasBearing()) location.bearing.toDouble() else null,
+            ),
+        )
         GapRepository.update {
             it.copy(lastOwnFixElapsedMs = SystemClock.elapsedRealtime(), statusMessage = null)
         }
@@ -299,7 +307,14 @@ class PartnerLinkService : Service() {
     private fun updateAdvertisement(location: Location) {
         val adapter = bluetoothAdapter ?: return
         if (!adapter.isEnabled) return
-        val payload = PacketCodec.encode(coupleTag, location.time, location.latitude, location.longitude)
+        val payload = PacketCodec.encode(
+            coupleTag = coupleTag,
+            gpsTimeMs = location.time,
+            latDeg = location.latitude,
+            lonDeg = location.longitude,
+            speedMps = if (location.hasSpeed()) location.speed.toDouble() else null,
+            headingDeg = if (location.hasBearing()) location.bearing.toDouble() else null,
+        )
         val data = AdvertiseData.Builder()
             .setIncludeDeviceName(false)
             .setIncludeTxPowerLevel(false)

@@ -8,6 +8,8 @@ PartnerGap — a Hammerhead Karoo (2/3) extension for two riders. Each device br
 position over connectionless BLE advertising (no pairing/GATT) and shows the live signed
 straight-line distance to the partner as a custom ride data field. One identical APK runs on both
 devices. Built with the karoo-ext SDK; use the **hammerskill** skill for Karoo API questions.
+`TECHNICAL.md` documents the wire format, time model, and gap algorithm — keep it in sync with
+protocol or algorithm changes.
 
 ## Build and test
 
@@ -56,10 +58,15 @@ both the extension service and the settings UI.
   — device clocks drift between the two riders and would break the timestamp matching in
   `GapEngine`. This is why GPS comes from `LocationManager`, not karoo-ext's `OnLocationChanged`
   (which carries no GPS timestamp).
-- A received partner fix is compared against the *own fix closest in GPS time* (ring buffer),
-  never the current position.
-- The packet format is versioned (`PacketCodec.VERSION`); unknown versions are silently dropped.
-  An encrypted format would be version 2 — don't change the v1 layout.
+- Fixes from different times are never compared directly: `GapEngine` dead-reckons both
+  positions to a common evaluation time (flat-earth extrapolation along each fix's speed/heading,
+  capped at 3 s) and falls back to matching the partner fix against the *own fix closest in GPS
+  time* (ring buffer) when the partner's speed/heading bytes are the `0xFF` sentinel or the cap
+  is exceeded.
+- The packet format is versioned (`PacketCodec.VERSION`); unknown versions and wrong sizes are
+  silently dropped. The 19-byte layout (incl. speed/heading bytes with `0xFF` sentinels) is
+  fixed for version 1; an encrypted format would be version 2. Both devices must run the same
+  app version.
 - BLE scans are stopped/restarted every ~20 min (Android demotes scans >30 min old), and scan
   starts are rate-limited in `startScanIfAllowed` (Android blocks >5 starts per 30 s).
 - Alerts/beeps go through karoo-ext (`PlayBeepPattern` via `KarooSystemService`) — standard

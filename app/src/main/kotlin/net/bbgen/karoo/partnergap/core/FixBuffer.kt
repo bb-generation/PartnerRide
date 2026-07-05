@@ -4,11 +4,15 @@ import kotlin.math.abs
 
 /**
  * One own GPS fix. [timeMs] is Location.getTime() — GPS (satellite) time, never the device clock.
+ * [speedMps]/[bearingDeg] come from Location.getSpeed()/getBearing() and are null when the fix
+ * doesn't carry them (e.g. standing still).
  */
 data class GpsFix(
     val timeMs: Long,
     val latDeg: Double,
     val lonDeg: Double,
+    val speedMps: Double? = null,
+    val bearingDeg: Double? = null,
 )
 
 /**

@@ -10,7 +10,10 @@ data class GapResult(
 )
 
 /**
- * The core gap computation: timestamp-matched, haversine, signed by own heading.
+ * The core gap computation: dead reckoning with timestamp alignment, haversine, signed by own
+ * heading. Both positions are extrapolated to a common evaluation time (the newer of the two fix
+ * timestamps); when the partner packet carries no speed/heading (sentinel) or a fix is too old to
+ * extrapolate, it falls back to matching the partner fix against the own fix closest in GPS time.
  *
  * Pure logic, no Android dependencies. The service feeds it own GPS fixes and decoded partner
  * packets; it recomputes on every received packet (never on a timer).
@@ -22,6 +25,8 @@ class GapEngine(
     private val replayResetMs: Long = 60_000L,
     /** Minimum distance between two own fixes for a heading to count as reliable. */
     private val headingMinDistanceM: Double = 2.0,
+    /** Never dead-reckon a position further than this; older fixes use the matching fallback. */
+    private val maxExtrapolationMs: Long = 3_000L,
 ) {
     private val replayGuard = ReplayGuard()
     private val recentGaps = ArrayDeque<Double>()
@@ -49,18 +54,18 @@ class GapEngine(
         if (!replayGuard.acceptIfNewer(packet.timeMod)) return null
         lastAcceptElapsedMs = nowElapsedMs
 
-        // Reconstruct the partner's full GPS timestamp relative to our newest fix, then compare
-        // against the own fix closest to that moment — not against the current position.
+        // Reconstruct the partner's full GPS timestamp relative to our newest fix; fixes from
+        // different times are never compared without alignment (extrapolation or matching).
         val partnerTimeMs = Timestamps.reconstruct(packet.timeMod, latestOwn.timeMs)
-        val matchedOwn = fixBuffer.closestTo(partnerTimeMs) ?: return null
+        val (ownPos, partnerPos) = alignPositions(packet, latestOwn, partnerTimeMs) ?: return null
 
-        val distance = Geo.haversineMeters(matchedOwn.latDeg, matchedOwn.lonDeg, packet.latDeg, packet.lonDeg)
+        val distance = Geo.haversineMeters(ownPos.latDeg, ownPos.lonDeg, partnerPos.latDeg, partnerPos.lonDeg)
 
-        val heading = ownHeadingDeg()
+        val heading = latestOwn.bearingDeg ?: ownHeadingDeg()
         val ahead = if (heading != null && distance > 0.0) {
             // Sign = projection of the vector to the partner onto our own heading.
             val bearingToPartner =
-                Geo.initialBearingDeg(matchedOwn.latDeg, matchedOwn.lonDeg, packet.latDeg, packet.lonDeg)
+                Geo.initialBearingDeg(ownPos.latDeg, ownPos.lonDeg, partnerPos.latDeg, partnerPos.lonDeg)
             abs(Geo.angleDiffDeg(bearingToPartner, heading)) < 90.0
         } else {
             lastSignAhead // heading unreliable (standing still): keep the last stable sign
@@ -76,6 +81,46 @@ class GapEngine(
             rawGapMeters = distance,
             partnerAhead = ahead,
         )
+    }
+
+    /**
+     * Aligns both positions to a common evaluation time — the newer of (own latest fix, partner
+     * fix) — by dead-reckoning the older one forward along its speed/heading.
+     *
+     * Falls back to plain timestamp matching (partner fix vs the own fix closest to its GPS
+     * time, no extrapolation) when the partner sent the invalid sentinel for speed/heading or
+     * when either fix would need more than [maxExtrapolationMs] of extrapolation — anything
+     * older is the staleness rules' problem, not dead reckoning's.
+     */
+    private fun alignPositions(
+        packet: PartnerPacket,
+        latestOwn: GpsFix,
+        partnerTimeMs: Long,
+    ): Pair<LatLon, LatLon>? {
+        val evalTimeMs = maxOf(latestOwn.timeMs, partnerTimeMs)
+        val partnerDtMs = evalTimeMs - partnerTimeMs
+        val ownDtMs = evalTimeMs - latestOwn.timeMs
+
+        val canDeadReckon = packet.speedMps != null && packet.headingDeg != null &&
+            partnerDtMs <= maxExtrapolationMs && ownDtMs <= maxExtrapolationMs
+
+        if (!canDeadReckon) {
+            val matchedOwn = fixBuffer.closestTo(partnerTimeMs) ?: return null
+            return LatLon(matchedOwn.latDeg, matchedOwn.lonDeg) to LatLon(packet.latDeg, packet.lonDeg)
+        }
+
+        val partnerPos = Geo.extrapolate(
+            packet.latDeg, packet.lonDeg, packet.speedMps!!, packet.headingDeg!!, partnerDtMs / 1000.0,
+        )
+        val ownPos = if (latestOwn.speedMps != null && latestOwn.bearingDeg != null) {
+            Geo.extrapolate(
+                latestOwn.latDeg, latestOwn.lonDeg, latestOwn.speedMps, latestOwn.bearingDeg, ownDtMs / 1000.0,
+            )
+        } else {
+            // No own speed/heading (standing still): the position isn't going anywhere.
+            LatLon(latestOwn.latDeg, latestOwn.lonDeg)
+        }
+        return ownPos to partnerPos
     }
 
     /** Own heading from recent own fixes: newest fix vs the most recent fix >= 2 m away. */

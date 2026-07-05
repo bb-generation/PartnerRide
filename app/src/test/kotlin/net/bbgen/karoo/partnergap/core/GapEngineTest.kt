@@ -148,6 +148,88 @@ class GapEngineTest {
         assertEquals(lastThreeRaw.average(), gaps.last().smoothedGapMeters, 0.5)
     }
 
+    // ------------------------------------------------------------ dead reckoning (v2)
+
+    @Test
+    fun `partner position is dead-reckoned forward to the own fix time`() {
+        val engine = GapEngine()
+        // Own device standing at a known point with fresh fixes.
+        for (t in 0..4) engine.onOwnFix(GpsFix(base + t * 1000L, 47.0, 15.0))
+        val own = engine.latestOwnFix()!!
+
+        // Partner fix is 2 s older than ours: ~111 m north, riding north at 10 m/s.
+        // Dead reckoning must evaluate the partner 20 m further along, not at the raw fix.
+        val partnerFixLat = 47.0 + 10 * latStep
+        val result = engine.onPartnerPacket(
+            PartnerPacket(timeMod(own.timeMs - 2000L), partnerFixLat, 15.0, speedMps = 10.0, headingDeg = 0.0),
+            nowElapsedMs = 1_000L,
+        )
+
+        assertNotNull(result)
+        val extrapolated = Geo.extrapolate(partnerFixLat, 15.0, 10.0, 0.0, 2.0)
+        val expected = Geo.haversineMeters(47.0, 15.0, extrapolated.latDeg, extrapolated.lonDeg)
+        assertEquals(expected, result!!.rawGapMeters, 0.5)
+        // Sanity: clearly more than the un-extrapolated ~111 m.
+        assertTrue(result.rawGapMeters > 125.0)
+    }
+
+    @Test
+    fun `own position is dead-reckoned forward when the partner fix is newer`() {
+        val engine = GapEngine()
+        // Own fixes carry GPS speed/bearing: riding north at 10 m/s.
+        for (t in 0..4) {
+            engine.onOwnFix(GpsFix(base + t * 1000L, 47.0 + t * latStep, 15.0, speedMps = 10.0, bearingDeg = 0.0))
+        }
+        val own = engine.latestOwnFix()!!
+
+        // Partner fix is 1 s newer, sitting exactly on our last fix position, not moving.
+        // Correct alignment extrapolates US 10 m forward: the partner ends up ~10 m behind.
+        val result = engine.onPartnerPacket(
+            PartnerPacket(timeMod(own.timeMs + 1000L), own.latDeg, own.lonDeg, speedMps = 0.0, headingDeg = 0.0),
+            nowElapsedMs = 1_000L,
+        )
+
+        assertNotNull(result)
+        assertEquals(10.0, result!!.rawGapMeters, 0.5)
+        assertFalse(result.partnerAhead)
+    }
+
+    @Test
+    fun `extrapolation is capped at 3 s - older partner fixes fall back to timestamp matching`() {
+        val engine = GapEngine()
+        rideNorth(engine, 5)
+        val own = engine.latestOwnFix()!!
+
+        // Partner fix is 5 s old, positioned exactly where we were 5 s ago, with valid speed
+        // and heading. Extrapolating 5 s would add ~50 m; the cap demands timestamp matching
+        // instead, which yields ~0 m.
+        val result = engine.onPartnerPacket(
+            PartnerPacket(timeMod(own.timeMs - 5000L), 47.0, 15.0, speedMps = 10.0, headingDeg = 0.0),
+            nowElapsedMs = 1_000L,
+        )
+
+        assertNotNull(result)
+        assertEquals(0.0, result!!.rawGapMeters, 1.0)
+    }
+
+    @Test
+    fun `sentinel speed or heading falls back to timestamp matching`() {
+        val engine = GapEngine()
+        rideNorth(engine, 5)
+        val own = engine.latestOwnFix()!!
+
+        // Partner fix 2 s old on our own track position of that moment, but WITHOUT
+        // speed/heading. No extrapolation allowed: matching gives ~0 m (with extrapolation
+        // it would be ~20 m).
+        val result = engine.onPartnerPacket(
+            PartnerPacket(timeMod(own.timeMs - 2000L), 47.0 + 3 * latStep, 15.0, speedMps = null, headingDeg = null),
+            nowElapsedMs = 1_000L,
+        )
+
+        assertNotNull(result)
+        assertEquals(0.0, result!!.rawGapMeters, 1.0)
+    }
+
     @Test
     fun `replayed packets are dropped`() {
         val engine = GapEngine()

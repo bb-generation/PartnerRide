@@ -7,15 +7,23 @@ ride data field shows the live straight-line distance to the partner, signed by 
 
 One identical APK runs on both riders' devices — no pairing, no connection, identical roles.
 
+Developer-level details (BLE transport, payload byte layout, time model, gap algorithm) live in
+[TECHNICAL.md](TECHNICAL.md).
+
 ## How it works
 
 - Both devices simultaneously advertise (legacy BLE, manufacturer data, ~100 ms interval, max TX
-  power) and scan. The 17-byte packet carries a format version, an app magic constant, a 4-byte
-  couple-code tag, the GPS fix timestamp (mod 65536, from satellite time), and lat/lon.
-- Packets are matched by *GPS timestamp*: the receiver compares the partner's fix against its own
-  fix from the same moment (ring buffer of the last ~5 s), so the gap is accurate even though
-  packets arrive with latency. Distance is straight-line (haversine); the ahead/behind sign is the
-  projection of the vector to the partner onto the rider's own heading.
+  power) and scan. The 19-byte packet carries a format version, an app magic constant, a 4-byte
+  couple-code tag, the GPS fix timestamp (mod 65536, from satellite time), lat/lon, and the speed
+  and heading of the fix (1 byte each, `0xFF` = unknown).
+- The gap is computed by *dead reckoning with timestamp alignment*: both positions are
+  extrapolated to a common evaluation time (the newer of the two fix timestamps) along their own
+  speed and heading, capped at 3 s. If the partner's speed/heading are unknown (or a fix is too
+  old to extrapolate), the receiver falls back to matching the partner's fix against its own fix
+  from the same GPS moment (ring buffer of the last ~5 s). Either way, fixes from different times
+  are never compared directly, so the gap stays accurate despite packet latency. Distance is
+  straight-line (haversine); the ahead/behind sign is the projection of the vector to the partner
+  onto the rider's own heading.
 - A rolling average over the last 3 values smooths the display; the background color has ~2 m of
   hysteresis at the 15 m and 50 m thresholds.
 - Both riders enter the same three-word couple code (e.g. `maple-rocket-sunset`); only packets
@@ -61,7 +69,8 @@ Alternative via adb: enable Developer Options on the Karoo (Settings → About �
 repeatedly), enable USB debugging, then `adb install -r app-release.apk` — and still open the app
 once.
 
-Repeat for **both** devices — the same APK goes on both.
+Repeat for **both** devices — the same APK (and the same version) goes on both; the packet
+format is validated strictly, so mismatched versions simply won't see each other.
 
 ## First-time setup (both devices)
 
@@ -104,8 +113,8 @@ mode saves power but can add a few seconds of update latency.
 ## Project layout
 
 - `core/` — pure logic, fully unit-tested: packet codec, couple code, timestamp
-  reconstruction/replay guard, GPS fix ring buffer, gap engine (matching/sign/smoothing), zone
-  hysteresis.
+  reconstruction/replay guard, GPS fix ring buffer, gap engine (dead reckoning with the
+  timestamp-matching fallback, sign, smoothing), zone hysteresis.
 - `service/PartnerLinkService.kt` — foreground service: BLE advertise + scan (with the 20-minute
   scan restart that dodges Android's 30-minute scan demotion), GPS via `LocationManager`
   (satellite time for the packet timestamps), wakelock, gap alert.
