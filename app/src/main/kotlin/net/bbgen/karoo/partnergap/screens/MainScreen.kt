@@ -36,13 +36,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import net.bbgen.karoo.partnergap.R
 import net.bbgen.karoo.partnergap.core.CoupleCode
 import net.bbgen.karoo.partnergap.core.GapRepository
 import net.bbgen.karoo.partnergap.data.PartnerGapSettings
 import net.bbgen.karoo.partnergap.data.ScanModeSetting
-import net.bbgen.karoo.partnergap.data.loadWordlist
 import net.bbgen.karoo.partnergap.data.saveSettings
 import net.bbgen.karoo.partnergap.data.streamSettings
 import net.bbgen.karoo.partnergap.service.ServiceController
@@ -56,6 +56,17 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     val settings by remember { context.streamSettings() }.collectAsState(initial = PartnerGapSettings())
     val linkState by GapRepository.state.collectAsState()
+
+    // Text fields own their state locally: driving them from the DataStore-backed `settings`
+    // would echo every keystroke back asynchronously and reset the cursor position. They are
+    // seeded from the stored values once and only written *to* the store afterwards.
+    var codeText by remember { mutableStateOf("") }
+    var thresholdText by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) {
+        val stored = context.streamSettings().first()
+        codeText = stored.coupleCode
+        thresholdText = stored.alertThresholdMeters.toString()
+    }
 
     // 1 Hz tick so the "x s ago" ages count up while the screen is open.
     var now by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
@@ -106,17 +117,21 @@ fun MainScreen(
         // ---------------- couple code ----------------
         Text(stringResource(R.string.setting_couple_code), style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
-            value = settings.coupleCode,
-            onValueChange = { update { s -> s.copy(coupleCode = it) } },
+            value = codeText,
+            onValueChange = { input ->
+                val digits = input.filter { it.isDigit() }.take(CoupleCode.CODE_LENGTH)
+                codeText = digits
+                update { s -> s.copy(coupleCode = digits) }
+            },
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text(stringResource(R.string.couple_code_hint)) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true,
         )
         Button(onClick = {
-            scope.launch {
-                val words = context.loadWordlist()
-                update { s -> s.copy(coupleCode = CoupleCode.generate(words)) }
-            }
+            val code = CoupleCode.generate()
+            codeText = code
+            update { s -> s.copy(coupleCode = code) }
         }) {
             Text(stringResource(R.string.generate_code))
         }
@@ -134,9 +149,6 @@ fun MainScreen(
             onCheckedChange = { update { s -> s.copy(alertEnabled = it) } },
         )
         if (settings.alertEnabled) {
-            var thresholdText by remember(settings.alertThresholdMeters) {
-                mutableStateOf(settings.alertThresholdMeters.toString())
-            }
             OutlinedTextField(
                 value = thresholdText,
                 onValueChange = { text ->

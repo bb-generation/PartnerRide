@@ -26,8 +26,8 @@ Developer-level details (BLE transport, payload byte layout, time model, gap alg
   onto the rider's own heading.
 - A rolling average over the last 3 values smooths the display; the background color has ~2 m of
   hysteresis at the 15 m and 50 m thresholds.
-- Both riders enter the same three-word couple code (e.g. `maple-rocket-sunset`); only packets
-  with a matching code tag are accepted. Optional gap alert: beep + full-screen flash the first
+- Both riders enter the same 6-digit couple code (e.g. `428713`); only packets with a matching
+  code tag are accepted. Optional gap alert: beep + full-screen flash the first
   time the gap exceeds a threshold, re-armed when the gap closes again.
 
 ## Build
@@ -75,9 +75,8 @@ format is validated strictly, so mismatched versions simply won't see each other
 ## First-time setup (both devices)
 
 1. On the Karoo: open PartnerGap. Grant the Bluetooth and Location permissions when prompted.
-2. **Device A:** tap **Generate** — it creates a three-word code like `maple-rocket-sunset`.
-3. **Device B:** type exactly that code into the couple-code field (case and spacing don't
-   matter; `Maple Rocket Sunset` works too).
+2. **Device A:** tap **Generate** — it creates a 6-digit code like `428713`.
+3. **Device B:** type exactly those 6 digits into the couple-code field.
 4. Enable **PartnerGap enabled** on both devices. The status section should show
    *Broadcasting: yes* and, once both have a GPS fix and are in range, a partner signal age of a
    few seconds.

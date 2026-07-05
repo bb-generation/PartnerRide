@@ -6,8 +6,8 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class PacketCodecTest {
-    private val tag = CoupleCode.tag("maple-rocket-sunset")
-    private val otherTag = CoupleCode.tag("cedar-comet-harbor")
+    private val tag = CoupleCode.tag("428713")
+    private val otherTag = CoupleCode.tag("917204")
 
     @Test
     fun `encode produces 19 bytes`() {

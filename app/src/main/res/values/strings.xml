@@ -10,8 +10,8 @@
 
     <string name="setting_enabled">PartnerGap enabled</string>
     <string name="setting_couple_code">Couple code</string>
-    <string name="couple_code_hint">maple-rocket-sunset</string>
-    <string name="couple_code_help">Both Karoos must use the exact same code. Generate it on one device and type it on the other.</string>
+    <string name="couple_code_hint">6-digit code, e.g. 428713</string>
+    <string name="couple_code_help">Both Karoos must use the exact same 6-digit code. Generate it on one device and type it on the other.</string>
     <string name="generate_code">Generate</string>
     <string name="setting_alert">Gap alert</string>
     <string name="setting_alert_threshold">Alert threshold (m)</string>

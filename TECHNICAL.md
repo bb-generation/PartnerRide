@@ -54,7 +54,7 @@ radios, so the service dispatches karoo-ext's `RequestBluetooth` on start and
 |---:|---:|---|---|---|
 | 0 | 1 | Version | `0x01` | Receiver silently drops unknown versions; an encrypted format would be version 2 |
 | 1 | 2 | Magic | `0x50 0x47` (`"PG"`) | App identifier; silently dropped on mismatch |
-| 3 | 4 | Couple code tag | First 4 bytes of `SHA-256(normalized couple code)` | Normalization: trim, lowercase, words joined with `-` (see §3.1) |
+| 3 | 4 | Couple code tag | First 4 bytes of `SHA-256(normalized couple code)` | Normalization: lowercase, whitespace/`-`/`_` stripped (see §3.1) |
 | 7 | 2 | GPS fix time | `Location.getTime() mod 65536`, unsigned | **Satellite time**, never the device clock (§5). Wraps every 65.536 s |
 | 9 | 4 | Latitude | `int32`, degrees × 10⁷ | ~1.1 cm resolution |
 | 13 | 4 | Longitude | `int32`, degrees × 10⁷ | |
@@ -71,13 +71,15 @@ receivers already reject any version ≠ 1, so the formats can coexist on air.
 ### 3.1 Couple code → tag
 
 ```
-normalize(" Maple ROCKET  sunset ") = "maple-rocket-sunset"   // trim, lowercase, [\s-_]+ → "-"
+normalize(" 123 456 ") = "123456"   // lowercase, [\s-_]+ stripped
 tag = SHA-256(UTF-8(normalized))[0..3]
 ```
 
-Codes are three words drawn from the bundled EFF short wordlist (1,296 words ≈ 31 bits of
-entropy); the tag is an identifier, not a security boundary. Both devices must produce the same
-4 bytes for packets to be accepted.
+Codes are 6 random digits (10⁶ ≈ 20 bits of entropy — enough to avoid accidental collisions
+between nearby couples); the tag is an identifier, not a security boundary, and with only 10⁶
+possible codes the plaintext tag is trivially brute-forceable back to the code. Both devices
+must produce the same 4 bytes for packets to be accepted. The SHA-256 hashing is kept (rather
+than embedding the digits directly) so the tag derivation is independent of the code format.
 
 ## 4. Receive-side validation pipeline
 

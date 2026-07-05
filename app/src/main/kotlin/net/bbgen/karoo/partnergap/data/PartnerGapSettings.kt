@@ -42,9 +42,3 @@ fun Context.streamSettings(): Flow<PartnerGapSettings> = dataStore.data.map { pr
         runCatching { json.decodeFromString<PartnerGapSettings>(it) }.getOrNull()
     } ?: PartnerGapSettings()
 }
-
-/** The bundled EFF short wordlist (1,296 words), one word per line. */
-fun Context.loadWordlist(): List<String> =
-    assets.open("eff_short_wordlist.txt").bufferedReader().useLines { lines ->
-        lines.map { it.trim() }.filter { it.isNotEmpty() }.toList()
-    }
