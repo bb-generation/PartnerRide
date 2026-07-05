@@ -89,6 +89,29 @@ format is validated strictly, so mismatched versions simply won't see each other
 The link runs whenever the extension is enabled — no ride recording needed. Battery Saver scan
 mode saves power but can add a few seconds of update latency.
 
+## About the two Android permission pop-ups
+
+On first launch PartnerGap asks for **location** and **nearby devices (Bluetooth)** using the
+plain Android system dialogs. They look out of place on the Karoo — no app can style those
+dialogs — and you won't have seen them from most other extensions. That's expected:
+
+- Most extensions get their data *through* Karoo OS (the karoo-ext SDK), where Hammerhead's own
+  software holds the permissions. PartnerGap can't use that path: the SDK's location event
+  carries no GPS timestamp, speed, or heading, and the partner link depends on satellite-time
+  stamps to compare two moving riders accurately (see TECHNICAL.md for the full reasoning).
+  So it reads GPS directly, which needs the location permission.
+- The Bluetooth broadcast/scan between the two Karoos is raw BLE advertising — something the
+  karoo-ext SDK has no API for — so the nearby-devices permission is genuinely required.
+
+Both dialogs appear **once per install**; after granting, they never return. If you sideload
+via adb and want to skip them entirely, pre-grant the permissions:
+
+```
+adb shell pm grant net.bbgen.karoo.partnergap android.permission.ACCESS_FINE_LOCATION
+adb shell pm grant net.bbgen.karoo.partnergap android.permission.BLUETOOTH_SCAN
+adb shell pm grant net.bbgen.karoo.partnergap android.permission.BLUETOOTH_ADVERTISE
+```
+
 ## Data field states
 
 | Display | Meaning |

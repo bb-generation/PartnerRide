@@ -207,7 +207,34 @@ PartnerLinkService (foreground, wakelock)          PartnergapExtension (bound by
   standard Android audio does not route to the Karoo buzzer. Armed/disarmed logic fires once per
   threshold crossing and re-arms only after the gap drops back below the threshold.
 
-## 9. Constants reference
+## 9. Permission model — why the app prompts where other extensions don't
+
+Karoo extensions normally act as pure karoo-ext clients: events (`OnLocationChanged`, stream
+states, ride state) arrive over the SDK's binder IPC from Karoo OS, which holds the underlying
+Android permissions itself. A pure client app therefore declares no dangerous permissions and
+never shows a runtime permission dialog. PartnerGap deliberately steps outside that model in two
+places, and each step has a permission cost:
+
+| Capability | karoo-ext path | Why PartnerGap can't use it | Resulting permission |
+|---|---|---|---|
+| Own position | `OnLocationChanged` event (no prompt) | Delivers only `lat`/`lng`/`orientation` — no `Location.getTime()` (the satellite time base of §5), no `getSpeed()`/`getBearing()` (dead-reckoning inputs of §6). Stamping fixes at receipt time would add an unknown 0.1–1 s of pipeline latency ≈ 1–10 m of error at riding speed | `ACCESS_FINE_LOCATION` for `LocationManager` (GPS provider) |
+| Device-to-device link | None — the SDK's Bluetooth surface is the *managed sensor framework* (`scansDevices`/`connectDevice`), where Karoo owns pairing and connections | The transport is connectionless raw BLE advertising + scanning (§2), which the sensor framework cannot express | `BLUETOOTH_ADVERTISE` + `BLUETOOTH_SCAN` (API 31+) |
+
+Consequences:
+
+- The two runtime prompts (location, nearby devices) are stock AOSP dialogs; they cannot be
+  themed and are shown once per install. `RequestBluetooth` (§2) only asks Karoo OS to power the
+  radio — it does not substitute for the app-level Android permissions.
+- `BLUETOOTH_SCAN` is declared *without* `neverForLocation`: the app holds fine location anyway,
+  and asserting the flag risks the OS filtering beacon-like advertisements out of scan results —
+  exactly what our manufacturer-data packets look like.
+- For prompt-free installs (e.g. test devices), the permissions can be pre-granted over adb with
+  `pm grant` (see README).
+- A degraded mode using karoo-ext location (no prompts, worse accuracy) is architecturally
+  possible — the `GapEngine` fallback path (§6.2) would carry it — but is intentionally not
+  implemented: it silently violates the accuracy contract the protocol is built around.
+
+## 10. Constants reference
 
 | Constant | Value | Location |
 |---|---|---|
