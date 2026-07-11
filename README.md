@@ -1,4 +1,4 @@
-# PartnerGap
+# PartnerRide
 
 A [Hammerhead Karoo](https://www.hammerhead.io/) extension for two riders. Each Karoo broadcasts
 its own GPS position over connectionless BLE advertising and receives the partner's; a custom
@@ -62,7 +62,7 @@ Via the Hammerhead companion app (no cables):
 2. Copy `app-release.apk` to the phone (AirDrop/Drive/USB/email...).
 3. Open the APK on the phone (tap it in your file manager or the "share" sheet) and choose to
    open/share it with the Hammerhead Companion app → it installs onto the paired Karoo.
-4. **On the Karoo, open the PartnerGap app once from the launcher** — extensions register with
+4. **On the Karoo, open the PartnerRide app once from the launcher** — extensions register with
    Karoo OS only after the first launch.
 
 Alternative via adb: enable Developer Options on the Karoo (Settings → About → tap Build Number
@@ -74,13 +74,13 @@ format is validated strictly, so mismatched versions simply won't see each other
 
 ## First-time setup (both devices)
 
-1. On the Karoo: open PartnerGap. Grant the Bluetooth and Location permissions when prompted.
+1. On the Karoo: open PartnerRide. Grant the Bluetooth and Location permissions when prompted.
 2. **Device A:** tap **Generate** — it creates a 6-digit code like `428713`.
 3. **Device B:** type exactly those 6 digits into the couple-code field.
-4. Enable **PartnerGap enabled** on both devices. The status section should show
+4. Enable **PartnerRide enabled** on both devices. The status section should show
    *Broadcasting: yes* and, once both have a GPS fix and are in range, a partner signal age of a
    few seconds.
-5. Add the field to a ride page: Profiles → edit page → add field → **PartnerGap → Partner Gap**.
+5. Add the field to a ride page: Profiles → edit page → add field → **PartnerRide → Partner Gap**.
    Full-width and half-width cells are both supported.
 6. Optional: enable the **Gap alert** and set a threshold (default 100 m). It beeps and flashes
    once each time the smoothed gap first exceeds the threshold, and re-arms after the gap closes.
@@ -90,12 +90,12 @@ mode saves power but can add a few seconds of update latency.
 
 ## About the two Android permission pop-ups
 
-On first launch PartnerGap asks for **location** and **nearby devices (Bluetooth)** using the
+On first launch PartnerRide asks for **location** and **nearby devices (Bluetooth)** using the
 plain Android system dialogs. They look out of place on the Karoo — no app can style those
 dialogs — and you won't have seen them from most other extensions. That's expected:
 
 - Most extensions get their data *through* Karoo OS (the karoo-ext SDK), where Hammerhead's own
-  software holds the permissions. PartnerGap can't use that path: the SDK's location event
+  software holds the permissions. PartnerRide can't use that path: the SDK's location event
   carries no GPS timestamp, speed, or heading, and the partner link depends on satellite-time
   stamps to compare two moving riders accurately (see TECHNICAL.md for the full reasoning).
   So it reads GPS directly, which needs the location permission.
@@ -106,9 +106,9 @@ Both dialogs appear **once per install**; after granting, they never return. If 
 via adb and want to skip them entirely, pre-grant the permissions:
 
 ```
-adb shell pm grant net.bbgen.karoo.partnergap android.permission.ACCESS_FINE_LOCATION
-adb shell pm grant net.bbgen.karoo.partnergap android.permission.BLUETOOTH_SCAN
-adb shell pm grant net.bbgen.karoo.partnergap android.permission.BLUETOOTH_ADVERTISE
+adb shell pm grant net.bbgen.karoo.partnerride android.permission.ACCESS_FINE_LOCATION
+adb shell pm grant net.bbgen.karoo.partnerride android.permission.BLUETOOTH_SCAN
+adb shell pm grant net.bbgen.karoo.partnerride android.permission.BLUETOOTH_ADVERTISE
 ```
 
 ## Data field states
@@ -122,7 +122,7 @@ adb shell pm grant net.bbgen.karoo.partnergap android.permission.BLUETOOTH_ADVER
 | `NO GPS` on gray | No own GPS fix (yet, or for >10 s) — nothing is being broadcast |
 | `NO BT` on gray | Bluetooth is off |
 | `NO PERM` on gray | Location/Bluetooth permissions missing — open the app to grant them |
-| `OFF` on gray | PartnerGap is disabled (or its service is not running) |
+| `OFF` on gray | PartnerRide is disabled (or its service is not running) |
 
 Gray states mean "not working, but nobody is being dropped"; red is reserved for a wide gap and
 for losing your partner mid-ride.

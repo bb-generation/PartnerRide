@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">PartnerGap</string>
-    <string name="extension_name">PartnerGap</string>
+    <string name="app_name">PartnerRide</string>
+    <string name="extension_name">PartnerRide</string>
 
     <string name="datatype_partner_gap_name">Partner Gap</string>
     <string name="datatype_partner_gap_desc">Live straight-line distance to your riding partner, signed by who is ahead</string>
@@ -8,7 +8,7 @@
     <string name="notification_channel">Partner link</string>
     <string name="notification_text">Broadcasting position to partner</string>
 
-    <string name="setting_enabled">PartnerGap enabled</string>
+    <string name="setting_enabled">PartnerRide enabled</string>
     <string name="setting_couple_code">Couple code</string>
     <string name="couple_code_hint">6-digit code, e.g. 428713</string>
     <string name="couple_code_help">Both Karoos must use the exact same 6-digit code. Generate it on one device and type it on the other.</string>

@@ -32,5 +32,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "PartnerGap"
+rootProject.name = "PartnerRide"
 include("app")

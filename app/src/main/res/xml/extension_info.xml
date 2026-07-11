@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ExtensionInfo
     displayName="@string/extension_name"
-    icon="@drawable/ic_partnergap"
-    id="partnergap"
+    icon="@drawable/ic_partnerride"
+    id="partnerride"
     scansDevices="false">
     <DataType
         typeId="partner-gap"
         displayName="@string/datatype_partner_gap_name"
         description="@string/datatype_partner_gap_desc"
         graphical="true"
-        icon="@drawable/ic_partnergap" />
+        icon="@drawable/ic_partnerride" />
 </ExtensionInfo>

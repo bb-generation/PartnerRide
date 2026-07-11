@@ -1,6 +1,6 @@
 # Prompt for Claude Code
 
-Use the **hammerskill** skill to build a complete Hammerhead Karoo extension called **PartnerGap**. Kotlin, karoo-ext SDK, target Karoo 3. One identical APK runs on both riders' devices. Deliver a buildable Android Studio / Gradle project plus a README with build and sideload instructions (sideload via Hammerhead companion app).
+Use the **hammerskill** skill to build a complete Hammerhead Karoo extension called **PartnerRide**. Kotlin, karoo-ext SDK, target Karoo 3. One identical APK runs on both riders' devices. Deliver a buildable Android Studio / Gradle project plus a README with build and sideload instructions (sideload via Hammerhead companion app).
 
 ## Purpose
 

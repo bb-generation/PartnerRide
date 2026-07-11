@@ -35,5 +35,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "partnergap-${{ github.event.release.tag_name }}.apk"
-          gh release upload "${{ github.event.release.tag_name }}" "partnergap-${{ github.event.release.tag_name }}.apk" --clobber
+          cp app/build/outputs/apk/release/app-release.apk "partnerride-${{ github.event.release.tag_name }}.apk"
+          gh release upload "${{ github.event.release.tag_name }}" "partnerride-${{ github.event.release.tag_name }}.apk" --clobber

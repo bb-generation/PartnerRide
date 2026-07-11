@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="partnergap_red">#E0352B</color>
+    <color name="partnerride_red">#E0352B</color>
     <!-- Matches the background of the generated launcher artwork (generated-icon.png). -->
     <color name="ic_launcher_background">#293036</color>
-    <color name="partnergap_white">#FFFFFF</color>
+    <color name="partnerride_white">#FFFFFF</color>
 </resources>

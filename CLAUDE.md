@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-PartnerGap — a Hammerhead Karoo (2/3) extension for two riders. Each device broadcasts its GPS
+PartnerRide — a Hammerhead Karoo (2/3) extension for two riders. Each device broadcasts its GPS
 position over connectionless BLE advertising (no pairing/GATT) and shows the live signed
 straight-line distance to the partner as a custom ride data field. One identical APK runs on both
 devices. Built with the karoo-ext SDK; use the **hammerskill** skill for Karoo API questions.
@@ -22,7 +22,7 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 .\gradlew.bat lint              # Android lint
 ```
 
-Run a single test class: `.\gradlew.bat test --tests "net.bbgen.karoo.partnergap.core.GapEngineTest"`
+Run a single test class: `.\gradlew.bat test --tests "net.bbgen.karoo.partnerride.core.GapEngineTest"`
 
 The `io.hammerhead:karoo-ext` dependency comes from GitHub Packages and needs auth even though
 it's public: `gpr.user`/`gpr.key` (PAT with `read:packages`) in the gitignored `local.properties`
@@ -41,8 +41,8 @@ Two cooperating services in one process, bridged by a `StateFlow`:
   (AdvertisingSet API, payload updated in place per GPS fix), BLE scanning, GPS via
   `LocationManager`, and the gap alert. Runs whenever the extension is enabled in settings,
   independent of ride recording. Writes results into `core/GapRepository`.
-- `extension/PartnergapExtension` — the karoo-ext service Karoo OS binds to; exposes
-  `PartnerGapDataType` (Glance→RemoteViews, reads `GapRepository`) and keeps the link service in
+- `extension/PartnerRideExtension` — the karoo-ext service Karoo OS binds to; exposes
+  `PartnerRideDataType` (Glance→RemoteViews, reads `GapRepository`) and keeps the link service in
   sync with the enable setting (covers start-after-boot).
 - `core/` — pure Kotlin with no Android dependencies, fully unit-tested on the JVM: packet
   codec, couple code, timestamp reconstruction + replay guard, fix ring buffer, gap engine,
@@ -74,7 +74,7 @@ shown). Don't remove one of these triggers because it "looks duplicated".
   starts are rate-limited in `startScanIfAllowed` (Android blocks >5 starts per 30 s).
 - Alerts/beeps go through karoo-ext (`PlayBeepPattern` via `KarooSystemService`) — standard
   Android audio does not route to the Karoo buzzer. In-ride field UI is RemoteViews-only (Glance).
-- Extension id `partnergap` (no dots) must match in `PartnergapExtension`, `extension_info.xml`,
+- Extension id `partnerride` (no dots) must match in `PartnerRideExtension`, `extension_info.xml`,
   and each `DataTypeImpl`'s typeId must have a `<DataType>` entry there.
-- `PartnerGapSettings` is persisted as JSON with `ignoreUnknownKeys` — add fields with defaults
+- `PartnerRideSettings` is persisted as JSON with `ignoreUnknownKeys` — add fields with defaults
   only.

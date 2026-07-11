@@ -46,7 +46,7 @@
         </activity>
 
         <service
-            android:name=".extension.PartnergapExtension"
+            android:name=".extension.PartnerRideExtension"
             android:exported="true"
             tools:ignore="ExportedService">
             <intent-filter>

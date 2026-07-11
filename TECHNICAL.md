@@ -1,4 +1,4 @@
-# PartnerGap — Technical Documentation
+# PartnerRide — Technical Documentation
 
 Internals for developers: the BLE protocol, the wire format, and the gap-computation pipeline.
 For build/install/usage see [README.md](README.md); for repo conventions see [CLAUDE.md](CLAUDE.md).
@@ -203,8 +203,8 @@ stale red one carried over from an earlier run.
 Single process, three layers, bridged by one `StateFlow`:
 
 ```
-PartnerLinkService (foreground, wakelock)          PartnergapExtension (bound by Karoo OS)
-  GPS (LocationManager, GPS provider)                PartnerGapDataType (Glance → RemoteViews)
+PartnerLinkService (foreground, wakelock)          PartnerRideExtension (bound by Karoo OS)
+  GPS (LocationManager, GPS provider)                PartnerRideDataType (Glance → RemoteViews)
   BLE advertise + scan (HandlerThread)                 reads GapRepository, renders field
   GapEngine + ZoneTracker                            MainActivity / MainScreen (Compose)
   writes ──► GapRepository.state (StateFlow) ◄── reads   settings UI + status line
@@ -212,7 +212,7 @@ PartnerLinkService (foreground, wakelock)          PartnergapExtension (bound by
 
 - `core/` has no Android dependencies; monotonic "now" values are injected as parameters, which
   is what makes the whole protocol/geometry layer unit-testable on the JVM.
-- Settings (`PartnerGapSettings`) persist as a JSON blob in a preferences DataStore
+- Settings (`PartnerRideSettings`) persist as a JSON blob in a preferences DataStore
   (`ignoreUnknownKeys` for forward/backward APK compatibility). `ServiceController.sync()` is the
   single authority mapping the enable toggle to service start/stop. It is deliberately called
   from **every** path that can want the link up — the extension service (Karoo OS binding us),
@@ -230,10 +230,10 @@ PartnerLinkService (foreground, wakelock)          PartnergapExtension (bound by
 Karoo extensions normally act as pure karoo-ext clients: events (`OnLocationChanged`, stream
 states, ride state) arrive over the SDK's binder IPC from Karoo OS, which holds the underlying
 Android permissions itself. A pure client app therefore declares no dangerous permissions and
-never shows a runtime permission dialog. PartnerGap deliberately steps outside that model in two
+never shows a runtime permission dialog. PartnerRide deliberately steps outside that model in two
 places, and each step has a permission cost:
 
-| Capability | karoo-ext path | Why PartnerGap can't use it | Resulting permission |
+| Capability | karoo-ext path | Why PartnerRide can't use it | Resulting permission |
 |---|---|---|---|
 | Own position | `OnLocationChanged` event (no prompt) | Delivers only `lat`/`lng`/`orientation` — no `Location.getTime()` (the satellite time base of §5), no `getSpeed()`/`getBearing()` (dead-reckoning inputs of §6). Stamping fixes at receipt time would add an unknown 0.1–1 s of pipeline latency ≈ 1–10 m of error at riding speed | `ACCESS_FINE_LOCATION` for `LocationManager` (GPS provider) |
 | Device-to-device link | None — the SDK's Bluetooth surface is the *managed sensor framework* (`scansDevices`/`connectDevice`), where Karoo owns pairing and connections | The transport is connectionless raw BLE advertising + scanning (§2), which the sensor framework cannot express | `BLUETOOTH_ADVERTISE` + `BLUETOOTH_SCAN` (API 31+) |

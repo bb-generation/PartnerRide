@@ -6,16 +6,16 @@ plugins {
 }
 
 android {
-    namespace = "net.bbgen.karoo.partnergap"
+    namespace = "net.bbgen.karoo.partnerride"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "net.bbgen.karoo.partnergap"
+        applicationId = "net.bbgen.karoo.partnerride"
         // 26 covers Karoo 2 (Android 8) and Karoo 3 (Android 12)
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.3.0"
+        versionCode = 5
+        versionName = "1.4.0"
     }
 
     buildTypes {
