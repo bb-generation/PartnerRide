@@ -49,8 +49,11 @@ Two cooperating services in one process, bridged by a `StateFlow`:
   zone hysteresis. Monotonic "now" values are passed in as parameters so the logic stays
   testable; only the service layer touches `SystemClock`.
 
-`ServiceController.sync()` is the only place that starts/stops the link service; it's called from
-both the extension service and the settings UI.
+`ServiceController.sync()` is the only place that starts/stops the link service. It is called
+redundantly from every path that can want the link up — the extension service, a
+`BOOT_COMPLETED` receiver, `MainActivity.onResume`, the data field's `startView`, and the
+settings UI — because Karoo OS may bind the extension late (or only once the data field is
+shown). Don't remove one of these triggers because it "looks duplicated".
 
 ## Invariants that are easy to break
 

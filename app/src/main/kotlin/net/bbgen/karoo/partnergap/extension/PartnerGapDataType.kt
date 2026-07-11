@@ -1,6 +1,7 @@
 package net.bbgen.karoo.partnergap.extension
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
@@ -23,20 +24,23 @@ import io.hammerhead.karooext.models.ViewConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
-import net.bbgen.karoo.partnergap.core.GapZone
-import net.bbgen.karoo.partnergap.core.PartnerGapState
-import net.bbgen.karoo.partnergap.core.roundGapForDisplay
-import android.os.SystemClock
-import kotlinx.coroutines.delay
+import net.bbgen.karoo.partnergap.core.FieldBackground
+import net.bbgen.karoo.partnergap.core.FieldDisplay
+import net.bbgen.karoo.partnergap.core.FieldState
 import net.bbgen.karoo.partnergap.core.GapRepository
+import net.bbgen.karoo.partnergap.data.streamSettings
+import net.bbgen.karoo.partnergap.service.ServiceController
 
 /**
  * The "Partner Gap" ride data field: distance to the partner with an ahead/behind arrow, on a
  * green/yellow/red background. Graphical (RemoteViews via Glance) because a plain numeric data
- * type cannot change its background color.
+ * type cannot change its background color. What to show for which link state is decided by
+ * [FieldState] in core; this class only renders.
  */
 @OptIn(ExperimentalGlanceRemoteViewsApi::class)
 class PartnerGapDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) {
@@ -51,15 +55,19 @@ class PartnerGapDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) {
             if (config.preview) {
                 // Page editor: no live data — render a representative sample.
                 val result = glance.compose(context, DpSize.Unspecified) {
-                    GapField(Display("42 m ▲", Color(GREEN_BG), Color.Black, 1f), config)
+                    GapField(FieldDisplay("42 m ▲", FieldBackground.GREEN, 1f), config)
                 }
                 emitter.updateView(result.remoteViews)
                 awaitCancellation()
             }
+            // The field being on screen means the user wants the link up: one of the redundant
+            // start triggers (with boot receiver and app open) so no single bind order is
+            // load-bearing.
+            ServiceController.sync(context.applicationContext, context.streamSettings().first())
             // Re-render on every state change and once per second (staleness ages tick).
             combine(GapRepository.state, secondsTicker()) { state, _ -> state }
                 .collect { state ->
-                    val display = buildDisplay(state, SystemClock.elapsedRealtime())
+                    val display = FieldState.build(state, SystemClock.elapsedRealtime())
                     val result = glance.compose(context, DpSize.Unspecified) { GapField(display, config) }
                     emitter.updateView(result.remoteViews)
                 }
@@ -77,68 +85,34 @@ class PartnerGapDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) {
         }
     }
 
-    internal data class Display(
-        val text: String,
-        val background: Color,
-        val textColor: Color,
-        /** Relative font scale (stale/lost states use longer, smaller text). */
-        val fontScale: Float,
-    )
-
     companion object {
         const val TYPE_ID = "partner-gap"
-
-        private const val GREEN_BG = 0xFF1DB954
-        private const val YELLOW_BG = 0xFFFFC107
-        private const val RED_BG = 0xFFE0352B
-
-        private const val FRESH_MS = 5_000L
-        /** After [FRESH_MS] show the last known value with its age for another 30 s, then "—". */
-        private const val LAST_KNOWN_MS = FRESH_MS + 30_000L
-        private const val OWN_FIX_STALE_MS = 10_000L
-
-        internal fun buildDisplay(state: PartnerGapState, nowElapsedMs: Long): Display {
-            val red = Color(RED_BG)
-            val linkBroken = !state.serviceRunning ||
-                !state.bluetoothReady ||
-                state.missingPermissions.isNotEmpty() ||
-                state.lastOwnFixElapsedMs == null ||
-                nowElapsedMs - state.lastOwnFixElapsedMs > OWN_FIX_STALE_MS
-            val packetAge = state.lastPacketElapsedMs?.let { nowElapsedMs - it }
-            val gap = state.smoothedGapMeters
-
-            if (linkBroken || packetAge == null || gap == null || packetAge > LAST_KNOWN_MS) {
-                return Display("—", red, Color.White, 1f)
-            }
-            val arrow = if (state.partnerAhead) "▲" else "▼"
-            val meters = roundGapForDisplay(gap)
-            return if (packetAge <= FRESH_MS) {
-                val background = when (state.zone) {
-                    GapZone.GREEN -> Color(GREEN_BG)
-                    GapZone.YELLOW -> Color(YELLOW_BG)
-                    GapZone.RED -> red
-                }
-                val textColor = if (state.zone == GapZone.RED) Color.White else Color.Black
-                Display("$meters m $arrow", background, textColor, 1f)
-            } else {
-                // Signal lost: last known value with age, red until it expires.
-                Display("~$meters m · ${packetAge / 1000} s", red, Color.White, 0.62f)
-            }
-        }
     }
 }
 
+private fun FieldBackground.color(): Color = when (this) {
+    FieldBackground.GREEN -> Color(0xFF1DB954)
+    FieldBackground.YELLOW -> Color(0xFFFFC107)
+    FieldBackground.RED -> Color(0xFFE0352B)
+    FieldBackground.GRAY -> Color(0xFF4A4A4A)
+}
+
+private fun FieldBackground.textColor(): Color = when (this) {
+    FieldBackground.GREEN, FieldBackground.YELLOW -> Color.Black
+    FieldBackground.RED, FieldBackground.GRAY -> Color.White
+}
+
 @Composable
-private fun GapField(display: PartnerGapDataType.Display, config: ViewConfig) {
+private fun GapField(display: FieldDisplay, config: ViewConfig) {
     Box(
-        modifier = GlanceModifier.fillMaxSize().background(display.background),
+        modifier = GlanceModifier.fillMaxSize().background(display.background.color()),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = display.text,
             maxLines = 1,
             style = TextStyle(
-                color = ColorProvider(display.textColor),
+                color = ColorProvider(display.background.textColor()),
                 fontSize = (config.textSize * display.fontScale).sp,
                 fontWeight = FontWeight.Bold,
             ),

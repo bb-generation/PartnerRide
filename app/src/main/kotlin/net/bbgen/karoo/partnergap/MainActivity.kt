@@ -47,6 +47,11 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshPermissions()
+        // Opening the app is one of the redundant triggers that bring the link service up (with
+        // the boot receiver and the data field view) — the enable toggle must not be the only way.
+        lifecycleScope.launch {
+            ServiceController.sync(applicationContext, applicationContext.streamSettings().first())
+        }
     }
 
     private fun refreshPermissions() {

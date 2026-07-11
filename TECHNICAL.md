@@ -173,17 +173,30 @@ reliable heading exists (standing still), the last stable sign is kept.
   background): green ≤ 15 m, yellow ≤ 50 m, red above — e.g. green→yellow at 16 m but
   yellow→green at 14 m.
 
-## 7. Staleness state machine (data field)
+## 7. Display state machine (data field)
 
-Ages are measured on the monotonic clock (`SystemClock.elapsedRealtime`), evaluated on every
-state change and once per second:
+Implemented in `core/FieldState` (pure Kotlin, JVM-tested); the view layer only maps
+`FieldBackground` values to colors. Ages are measured on the monotonic clock
+(`SystemClock.elapsedRealtime`), evaluated on every state change and once per second. When
+several things are wrong, the **first matching row from the top wins**, so the field always
+names the first problem to fix:
 
 | Condition | Display | Background |
 |---|---|---|
-| Packet ≤ 5 s old, own fix ≤ 10 s old | `42 m ▲` | zone color (§6.4) |
-| Packet 5–35 s old | `~180 m · 8 s` (last value + age) | red |
-| Packet > 35 s, or never | `—` | red |
-| Bluetooth off / permissions missing / own GPS fix > 10 s old | `—` | red |
+| Runtime permissions missing | `NO PERM` | gray |
+| Link service not running (extension disabled) | `OFF` | gray |
+| Bluetooth off | `NO BT` | gray |
+| No own GPS fix yet, or own fix > 10 s old (not broadcasting) | `NO GPS` | gray |
+| No partner packet since the service started | `NO SIGNAL` | gray |
+| Packet ≤ 5 s old | `42 m ▲` | zone color (§6.4) |
+| Packet 5–60 s old | `~180 m · 8 s` (last value + age) | red |
+| Packet > 60 s old (contact lost) | `NO SIGNAL` | red |
+
+Gray means "the link is not working, but nobody is being dropped"; red is reserved for the
+wide-gap zone and for losing a previously established partner signal mid-ride. To keep that
+distinction meaningful, each service start resets the session in `GapRepository` (last
+packet/fix ages, smoothed gap), so a new session begins at the gray `NO SIGNAL`, never at a
+stale red one carried over from an earlier run.
 
 ## 8. App architecture
 
@@ -201,8 +214,11 @@ PartnerLinkService (foreground, wakelock)          PartnergapExtension (bound by
   is what makes the whole protocol/geometry layer unit-testable on the JVM.
 - Settings (`PartnerGapSettings`) persist as a JSON blob in a preferences DataStore
   (`ignoreUnknownKeys` for forward/backward APK compatibility). `ServiceController.sync()` is the
-  single authority mapping the enable toggle to service start/stop, called from both the
-  extension service (covers boot) and the settings UI.
+  single authority mapping the enable toggle to service start/stop. It is deliberately called
+  from **every** path that can want the link up — the extension service (Karoo OS binding us),
+  a `BOOT_COMPLETED` receiver, `MainActivity.onResume`, the data field's `startView`, and the
+  settings UI — because Karoo OS may bind the extension late (or only once the data field is
+  first shown); with redundant triggers no single bind order is load-bearing.
 - The in-ride field is RemoteViews-only (Karoo renders it in its own process) — hence Glance,
   and hence the field state must be re-rendered rather than animated.
 - The gap alert dispatches karoo-ext effects (`PlayBeepPattern`, `TurnScreenOn`, `InRideAlert`);
@@ -249,7 +265,7 @@ Consequences:
 | Smoothing window | 3 values | `GapEngine.smoothingWindow` |
 | Heading reliability distance | 2 m | `GapEngine.headingMinDistanceM` |
 | Zone thresholds / hysteresis | 15 m, 50 m / ±1 m | `ZoneTracker` |
-| Fresh / last-known / gone | 5 s / +30 s / — | `PartnerGapDataType` |
-| Own-fix stale limit | 10 s | `PartnerGapDataType` |
+| Fresh / signal-lost limit | 5 s / 60 s | `FieldState.FRESH_MS` / `FieldState.SIGNAL_LOST_MS` |
+| Own-fix stale limit | 10 s | `FieldState.OWN_FIX_STALE_MS` |
 | GPS update interval | 1 s | `PartnerLinkService.LOCATION_INTERVAL_MS` |
 | Scan restart period | 20 min | `PartnerLinkService.SCAN_RESTART_INTERVAL_MS` |

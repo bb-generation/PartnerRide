@@ -142,6 +142,11 @@ class PartnerLinkService : Service() {
                 missingPermissions = emptyList(),
                 statusMessage = null,
                 bluetoothReady = bluetoothAdapter?.isEnabled == true,
+                // Fresh session: clear leftover fix/packet ages from an earlier run so the field
+                // starts at the gray "no contact yet" state, not at a stale red "signal lost".
+                lastOwnFixElapsedMs = null,
+                lastPacketElapsedMs = null,
+                smoothedGapMeters = null,
             )
         }
 

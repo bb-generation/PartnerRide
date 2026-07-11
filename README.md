@@ -117,13 +117,21 @@ adb shell pm grant net.bbgen.karoo.partnergap android.permission.BLUETOOTH_ADVER
 |---|---|
 | `42 m ▲` on green/yellow/red | Live gap; ≤15 m green, ≤50 m yellow, >50 m red |
 | `~180 m · 8 s` on red | No packet for >5 s: last known value + its age |
-| `—` on red | No signal for >35 s, Bluetooth off, permissions missing, or no own GPS fix |
+| `NO SIGNAL` on red | Partner signal lost for >60 s (usually: out of BLE range) |
+| `NO SIGNAL` on gray | Running and broadcasting, but no partner heard yet |
+| `NO GPS` on gray | No own GPS fix (yet, or for >10 s) — nothing is being broadcast |
+| `NO BT` on gray | Bluetooth is off |
+| `NO PERM` on gray | Location/Bluetooth permissions missing — open the app to grant them |
+| `OFF` on gray | PartnerGap is disabled (or its service is not running) |
+
+Gray states mean "not working, but nobody is being dropped"; red is reserved for a wide gap and
+for losing your partner mid-ride.
 
 ## Known limitations
 
 - **BLE range is roughly 50–150 m** in the open (less with bodies/terrain in the way). Beyond
-  that the field shows the last known gap, then `—`. The link recovers by itself when back in
-  range — there is no reconnect logic to get stuck.
+  that the field shows the last known gap for 60 s, then `NO SIGNAL`. The link recovers by
+  itself when back in range — there is no reconnect logic to get stuck.
 - **GPS accuracy floor:** each device is ±3–5 m, so the displayed gap has an error floor of
   roughly 5–10 m. Treat small gaps as "together", not as centimeter truth.
 - **Straight-line distance:** on switchbacks/hairpins the road distance between riders can be much
@@ -136,7 +144,7 @@ adb shell pm grant net.bbgen.karoo.partnergap android.permission.BLUETOOTH_ADVER
 
 - `core/` — pure logic, fully unit-tested: packet codec, couple code, timestamp
   reconstruction/replay guard, GPS fix ring buffer, gap engine (dead reckoning with the
-  timestamp-matching fallback, sign, smoothing), zone hysteresis.
+  timestamp-matching fallback, sign, smoothing), zone hysteresis, data field display states.
 - `service/PartnerLinkService.kt` — foreground service: BLE advertise + scan (with the 20-minute
   scan restart that dodges Android's 30-minute scan demotion), GPS via `LocationManager`
   (satellite time for the packet timestamps), wakelock, gap alert.
