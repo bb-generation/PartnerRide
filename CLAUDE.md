@@ -33,6 +33,12 @@ Deploy to a Karoo over adb: `adb install -r app\build\outputs\apk\release\app-re
 **open the app once on the device** or the extension won't register. There is no way to exercise
 the BLE link without two physical devices; everything testable without hardware lives in `core/`.
 
+**Cutting a release:** bump `versionCode`/`versionName` in `app/build.gradle.kts` (every commit
+that changes user-visible or wire-format behavior has done this) and publishing a GitHub Release
+triggers `.github/workflows/release.yml`, which runs the unit tests, builds `assembleRelease`, and
+attaches the APK to that release. Both devices must run the same version (see packet versioning
+below), so there's no partial-rollout path — a release is an all-or-nothing swap for both riders.
+
 ## Architecture
 
 Two cooperating services in one process, bridged by a `StateFlow`:
@@ -72,6 +78,10 @@ shown). Don't remove one of these triggers because it "looks duplicated".
   app version.
 - BLE scans are stopped/restarted every ~20 min (Android demotes scans >30 min old), and scan
   starts are rate-limited in `startScanIfAllowed` (Android blocks >5 starts per 30 s).
+- Scan mode is hardcoded to `SCAN_MODE_BALANCED` (duty-cycled) — there is deliberately no
+  user-facing battery/latency setting. A Performance/Battery-Saver toggle was tried and then
+  removed (see git history) because riders have no way to judge that tradeoff; don't reintroduce
+  one without being asked.
 - Alerts/beeps go through karoo-ext (`PlayBeepPattern` via `KarooSystemService`) — standard
   Android audio does not route to the Karoo buzzer. In-ride field UI is RemoteViews-only (Glance).
 - Extension id `partnerride` (no dots) must match in `PartnerRideExtension`, `extension_info.xml`,
