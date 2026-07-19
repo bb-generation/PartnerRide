@@ -59,7 +59,6 @@ import net.bbgen.karoo.partnerride.core.PacketCodec
 import net.bbgen.karoo.partnerride.core.ZoneTracker
 import net.bbgen.karoo.partnerride.core.roundGapForDisplay
 import net.bbgen.karoo.partnerride.data.PartnerRideSettings
-import net.bbgen.karoo.partnerride.data.ScanModeSetting
 import net.bbgen.karoo.partnerride.data.streamSettings
 import kotlin.math.abs
 
@@ -224,16 +223,10 @@ class PartnerLinkService : Service() {
 
     private suspend fun collectSettings() {
         applicationContext.streamSettings().collect { new ->
-            val old = settings
             settings = new
             coupleTag = CoupleCode.tag(new.coupleCode)
             if (!new.enabled) {
                 stopSelf()
-                return@collect
-            }
-            if (old.scanMode != new.scanMode && scanning) {
-                // User-driven and rare; restart cadence stays far below Android's 5-per-30s cap.
-                handler.post { restartScan() }
             }
         }
     }
@@ -422,10 +415,10 @@ class PartnerLinkService : Service() {
         } else {
             emptyList()
         }
-        val mode = when (settings.scanMode) {
-            ScanModeSetting.PERFORMANCE -> ScanSettings.SCAN_MODE_LOW_LATENCY
-            ScanModeSetting.BATTERY_SAVER -> ScanSettings.SCAN_MODE_BALANCED
-        }
+        // Duty-cycled scanning: the only mode. Trades a small, bounded chance of missing an
+        // individual advertisement (retransmissions during the ~1s GPS-fix window cover for it)
+        // for real receiver-radio battery savings; still lands updates roughly every 2-3 s.
+        val mode = ScanSettings.SCAN_MODE_BALANCED
         // Batch scan results in the controller's own buffer and only wake the AP once per
         // SCAN_REPORT_DELAY_MS, instead of once per advertisement. Falls back to immediate
         // per-result delivery (onScanResult) on hardware without batching support.

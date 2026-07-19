@@ -5,11 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -17,7 +15,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,7 +39,6 @@ import net.bbgen.karoo.partnerride.R
 import net.bbgen.karoo.partnerride.core.CoupleCode
 import net.bbgen.karoo.partnerride.core.GapRepository
 import net.bbgen.karoo.partnerride.data.PartnerRideSettings
-import net.bbgen.karoo.partnerride.data.ScanModeSetting
 import net.bbgen.karoo.partnerride.data.saveSettings
 import net.bbgen.karoo.partnerride.data.streamSettings
 import net.bbgen.karoo.partnerride.service.ServiceController
@@ -166,23 +162,6 @@ fun MainScreen(
 
         HorizontalDivider()
 
-        // ---------------- scan mode ----------------
-        Text(stringResource(R.string.setting_scan_mode), style = MaterialTheme.typography.titleMedium)
-        ScanModeOption(
-            label = stringResource(R.string.scan_mode_performance),
-            selected = settings.scanMode == ScanModeSetting.PERFORMANCE,
-        ) { update { s -> s.copy(scanMode = ScanModeSetting.PERFORMANCE) } }
-        ScanModeOption(
-            label = stringResource(R.string.scan_mode_battery),
-            selected = settings.scanMode == ScanModeSetting.BATTERY_SAVER,
-        ) { update { s -> s.copy(scanMode = ScanModeSetting.BATTERY_SAVER) } }
-        Text(
-            stringResource(R.string.scan_mode_battery_note),
-            style = MaterialTheme.typography.bodySmall,
-        )
-
-        HorizontalDivider()
-
         // ---------------- status ----------------
         Text(stringResource(R.string.status_title), style = MaterialTheme.typography.titleMedium)
         StatusLine(
@@ -211,15 +190,6 @@ private fun LabeledSwitch(label: String, checked: Boolean, onCheckedChange: (Boo
     ) {
         Text(label, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-@Composable
-private fun ScanModeOption(label: String, selected: Boolean, onSelect: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        RadioButton(selected = selected, onClick = onSelect)
-        Spacer(Modifier.width(4.dp))
-        Text(label)
     }
 }
 

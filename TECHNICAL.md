@@ -10,8 +10,8 @@ connection, and no acknowledgement — each device is simultaneously:
 
 - a **broadcaster**: BLE legacy advertisement containing its own most recent GPS fix, refreshed
   in place on every fix (~1 Hz), transmitted every ~250 ms;
-- a **receiver**: BLE scanner (duty-cycled by default to save battery, landing updates roughly
-  every 2–3 s) that picks up the partner's advertisements and recomputes the gap on every
+- a **receiver**: BLE scanner (duty-cycled to save battery, landing updates roughly every
+  2–3 s) that picks up the partner's advertisements and recomputes the gap on every
   accepted packet (never on a timer).
 
 Because the link is stateless, "reconnection" does not exist as a concept: when the partner
@@ -36,7 +36,7 @@ state (the replay guard, §5) auto-resets after 60 s of silence so it can never 
 | Advertising interval | `INTERVAL_MEDIUM` (~250 ms) | Own GPS fixes change ~1x/s, so `INTERVAL_LOW`'s 10 TX/s was pure redundancy; ~4 TX/s still gives a duty-cycled scanner several chances per fix at ~1/4 the advertising-side radio time |
 | TX power | `TX_POWER_HIGH` | Maximize range (~50–150 m open air) |
 | Carrier | Manufacturer-specific data, manufacturer ID `0xFFFF` | Bluetooth SIG *test* ID; single constant `PacketCodec.MANUFACTURER_ID` |
-| Scan mode | `SCAN_MODE_BALANCED` (Battery Saver, default) or `SCAN_MODE_LOW_LATENCY` (Performance setting) | User-selectable latency/battery tradeoff. `BALANCED` duty-cycles the receiver (~25% listening) and still lands updates roughly every 2–3 s given the advertising interval above; `LOW_LATENCY` listens near-continuously for the fastest updates at higher battery cost |
+| Scan mode | `SCAN_MODE_BALANCED`, fixed (not user-selectable) | Duty-cycles the receiver (~25% listening) to save radio power while still landing updates roughly every 2–3 s given the advertising interval above. Not exposed as a setting — the tradeoff is made once for everyone rather than asking riders to choose |
 | Scan result batching | `setReportDelay(SCAN_REPORT_DELAY_MS)` (2 s), when `BluetoothAdapter.isOffloadedScanBatchingSupported` | The controller buffers matched advertisements in its own memory and wakes the AP once per delay window (`onBatchScanResults`) instead of once per advertisement (`onScanResult`) — cuts CPU/Binder wakeups without dropping any packets or affecting radio listening time. Falls back to immediate per-result delivery on hardware without batching support |
 | Scan filter | Hardware `ScanFilter` on manufacturer ID `0xFFFF`, empty data mask | Cheap pre-filter; full validation still happens in software (§4). `USE_HARDWARE_FILTER = false` switches to a permissive scan if a device's filtering proves unreliable |
 | Scan restart | Stop + immediate start every **20 min** | Android demotes scans older than 30 min to opportunistic mode; the restart resets that timer |

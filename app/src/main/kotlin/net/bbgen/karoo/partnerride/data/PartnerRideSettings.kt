@@ -9,22 +9,15 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-enum class ScanModeSetting {
-    /** SCAN_MODE_LOW_LATENCY — near-continuous scanning, fastest partner updates, higher battery use. */
-    PERFORMANCE,
-
-    /** SCAN_MODE_BALANCED — duty-cycled scanning (default); still lands updates every ~2-3 s. */
-    BATTERY_SAVER,
-}
-
 @Serializable
 data class PartnerRideSettings(
     val enabled: Boolean = false,
     val coupleCode: String = "",
     val alertEnabled: Boolean = false,
     val alertThresholdMeters: Int = 100,
-    val scanMode: ScanModeSetting = ScanModeSetting.BATTERY_SAVER,
-    // Add fields with defaults only — old persisted JSON must keep decoding.
+    // Add fields with defaults only — old persisted JSON must keep decoding. Removed fields are
+    // fine too: ignoreUnknownKeys below means old JSON with a since-removed key (e.g. the former
+    // "scanMode") just has that key ignored on decode.
 )
 
 private val Context.dataStore by preferencesDataStore(name = "partnerride_settings")

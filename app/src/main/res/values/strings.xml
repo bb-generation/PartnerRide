@@ -15,10 +15,6 @@
     <string name="generate_code">Generate</string>
     <string name="setting_alert">Gap alert</string>
     <string name="setting_alert_threshold">Alert threshold (m)</string>
-    <string name="setting_scan_mode">Scan mode</string>
-    <string name="scan_mode_performance">Performance</string>
-    <string name="scan_mode_battery">Battery Saver (default)</string>
-    <string name="scan_mode_battery_note">Battery Saver updates every ~2-3 s and uses less power. Performance scans continuously for near-instant updates at the cost of battery life.</string>
 
     <string name="status_title">Status</string>
     <string name="status_broadcasting">Broadcasting</string>
