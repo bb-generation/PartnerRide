@@ -10,10 +10,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 enum class ScanModeSetting {
-    /** SCAN_MODE_LOW_LATENCY — fastest partner updates (default). */
+    /** SCAN_MODE_LOW_LATENCY — near-continuous scanning, fastest partner updates, higher battery use. */
     PERFORMANCE,
 
-    /** SCAN_MODE_BALANCED — saves battery, can add a few seconds of update latency. */
+    /** SCAN_MODE_BALANCED — duty-cycled scanning (default); still lands updates every ~2-3 s. */
     BATTERY_SAVER,
 }
 
@@ -23,7 +23,7 @@ data class PartnerRideSettings(
     val coupleCode: String = "",
     val alertEnabled: Boolean = false,
     val alertThresholdMeters: Int = 100,
-    val scanMode: ScanModeSetting = ScanModeSetting.PERFORMANCE,
+    val scanMode: ScanModeSetting = ScanModeSetting.BATTERY_SAVER,
     // Add fields with defaults only — old persisted JSON must keep decoding.
 )
 

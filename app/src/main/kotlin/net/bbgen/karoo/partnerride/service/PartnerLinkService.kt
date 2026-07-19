@@ -332,13 +332,15 @@ class PartnerLinkService : Service() {
                 set.setAdvertisingData(data)
             } else if (!advertisingStartPending) {
                 advertisingStartPending = true
-                // Legacy advertisement (fits ~24 usable payload bytes), ~100 ms interval,
-                // max TX power — equivalent of ADVERTISE_MODE_LOW_LATENCY/ADVERTISE_TX_POWER_HIGH.
+                // Legacy advertisement (fits ~24 usable payload bytes), ~250 ms interval, max TX
+                // power. Own GPS fixes only change ~1x/s, so INTERVAL_LOW's ~100 ms (10 TX/s) was
+                // pure redundancy; ~250 ms (4 TX/s) still gives a duty-cycled scanner several
+                // chances to catch each fix while cutting advertising-side radio time ~4x.
                 val params = AdvertisingSetParameters.Builder()
                     .setLegacyMode(true)
                     .setConnectable(false)
                     .setScannable(false)
-                    .setInterval(AdvertisingSetParameters.INTERVAL_LOW)
+                    .setInterval(AdvertisingSetParameters.INTERVAL_MEDIUM)
                     .setTxPowerLevel(AdvertisingSetParameters.TX_POWER_HIGH)
                     .build()
                 adapter.bluetoothLeAdvertiser?.startAdvertisingSet(
@@ -370,8 +372,17 @@ class PartnerLinkService : Service() {
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            // Callbacks arrive on the main thread; do all work on the link thread.
+            // Fires per-advertisement when batching is off/unsupported. Callbacks arrive on the
+            // main thread; do all work on the link thread.
             handler.post { handleScanResult(result) }
+        }
+
+        override fun onBatchScanResults(results: MutableList<ScanResult>) {
+            // Fires instead of onScanResult when SCAN_REPORT_DELAY_MS batching is active: the
+            // controller buffers matches on its own and wakes the AP once per delay window
+            // instead of once per advertisement, cutting CPU/Binder wakeups without dropping any
+            // packets (handleScanResult's replay guard still de-dupes retransmissions).
+            handler.post { results.forEach(::handleScanResult) }
         }
 
         override fun onScanFailed(errorCode: Int) {
@@ -415,10 +426,14 @@ class PartnerLinkService : Service() {
             ScanModeSetting.PERFORMANCE -> ScanSettings.SCAN_MODE_LOW_LATENCY
             ScanModeSetting.BATTERY_SAVER -> ScanSettings.SCAN_MODE_BALANCED
         }
+        // Batch scan results in the controller's own buffer and only wake the AP once per
+        // SCAN_REPORT_DELAY_MS, instead of once per advertisement. Falls back to immediate
+        // per-result delivery (onScanResult) on hardware without batching support.
+        val reportDelayMs = if (adapter.isOffloadedScanBatchingSupported) SCAN_REPORT_DELAY_MS else 0L
         val scanSettings = ScanSettings.Builder()
             .setScanMode(mode)
             .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
-            .setReportDelay(0)
+            .setReportDelay(reportDelayMs)
             .build()
         try {
             adapter.bluetoothLeScanner?.startScan(filters, scanSettings, scanCallback) ?: return
@@ -568,6 +583,7 @@ class PartnerLinkService : Service() {
         private const val ACTION_STOP = "net.bbgen.karoo.partnerride.STOP"
         private const val LOCATION_INTERVAL_MS = 1_000L
         private const val SCAN_RESTART_INTERVAL_MS = 20L * 60L * 1_000L
+        private const val SCAN_REPORT_DELAY_MS = 2_000L
         private const val USE_HARDWARE_FILTER = true
 
         fun start(context: Context) {

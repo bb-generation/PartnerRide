@@ -14,8 +14,8 @@ android {
         // 26 covers Karoo 2 (Android 8) and Karoo 3 (Android 12)
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.4.0"
+        versionCode = 6
+        versionName = "1.5.0"
     }
 
     buildTypes {

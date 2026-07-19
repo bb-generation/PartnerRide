@@ -127,8 +127,23 @@ class GapEngineTest {
     }
 
     @Test
-    fun `smoothing averages the last three computed values`() {
+    fun `default smoothing window is 1 - effectively disabled`() {
         val engine = GapEngine()
+        rideNorth(engine, 2)
+        val own = engine.latestOwnFix()!!
+
+        val result = engine.onPartnerPacket(
+            PartnerPacket(timeMod(own.timeMs), own.latDeg + 10 * latStep, 15.0),
+            nowElapsedMs = 1_000L,
+        )
+
+        assertNotNull(result)
+        assertEquals(result!!.rawGapMeters, result.smoothedGapMeters, 1e-9)
+    }
+
+    @Test
+    fun `smoothing averages the last three computed values`() {
+        val engine = GapEngine(smoothingWindow = 3)
         rideNorth(engine, 4)
         val own = engine.latestOwnFix()!!
 

@@ -20,7 +20,10 @@ data class GapResult(
  */
 class GapEngine(
     private val fixBuffer: FixBuffer = FixBuffer(),
-    private val smoothingWindow: Int = 3,
+    // 1 = smoothing effectively disabled. Was 3, but duty-cycled scanning (battery saver) already
+    // spaces accepted packets several seconds apart, and averaging N of those multiplies the
+    // display lag by N. Left as a constructor param (not deleted) so it's a one-line revert.
+    private val smoothingWindow: Int = 1,
     /** No accepted packet for this long -> forget replay state so recovery is never blocked. */
     private val replayResetMs: Long = 60_000L,
     /** Minimum distance between two own fixes for a heading to count as reliable. */
