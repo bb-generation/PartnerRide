@@ -36,6 +36,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat">
+        <!-- Lets an already-installed copy discover updates from Settings -> Extensions,
+             independent of being listed in the curated Extensions Library. -->
+        <meta-data
+            android:name="io.hammerhead.karooext.MANIFEST_URL"
+            android:value="https://github.com/bb-generation/PartnerRide/releases/latest/download/manifest.json" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

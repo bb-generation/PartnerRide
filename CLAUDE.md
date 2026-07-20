@@ -58,9 +58,12 @@ the BLE link without two physical devices; everything testable without hardware 
 that changes user-visible or wire-format behavior has done this) and publishing a GitHub Release
 triggers `.github/workflows/release.yml`, which runs the unit tests, builds `assembleRelease`
 (real-key signed, via the `KEYSTORE_BASE64`/`KEY_ALIAS`/`KEY_PASSWORD`/`KEYSTORE_PASSWORD` repo
-secrets described above), and attaches the APK to that release. Both devices must run the same
-version (see packet versioning below), so there's no partial-rollout path — a release is an
-all-or-nothing swap for both riders.
+secrets described above), and attaches the APK to that release, plus a generated `manifest.json`
+and `icon.png` at stable `.../releases/latest/download/...` URLs. `AndroidManifest.xml`'s
+`MANIFEST_URL` meta-data points there so Karoo OS can show an update-available signal in
+Settings → Extensions on already-installed copies (independent of any curated-library listing).
+Both devices must run the same version (see packet versioning below), so there's no
+partial-rollout path — a release is an all-or-nothing swap for both riders.
 
 ## Architecture
 

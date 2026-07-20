@@ -81,6 +81,33 @@ android {
     }
 }
 
+// manifest.json for Karoo OS's MANIFEST_URL update check (AndroidManifest.xml) and, if ever
+// submitted, the curated Extensions Library. Hosted at a stable GitHub Releases "latest" URL, so
+// it's regenerated and re-uploaded on every release rather than committed to the repo.
+val manifestBaseUrl = "https://github.com/bb-generation/PartnerRide/releases/latest/download"
+tasks.register("generateManifest") {
+    description = "Generates manifest.json with current version information"
+    group = "build"
+
+    doLast {
+        val manifest = mapOf(
+            "label" to "PartnerRide",
+            "packageName" to android.defaultConfig.applicationId,
+            "iconUrl" to "$manifestBaseUrl/icon.png",
+            "latestApkUrl" to "$manifestBaseUrl/app-release.apk",
+            "latestVersion" to android.defaultConfig.versionName,
+            "latestVersionCode" to android.defaultConfig.versionCode,
+            "developer" to "bb-generation",
+            "description" to ("Shows the live straight-line distance to a riding partner's Karoo, " +
+                "signed by who is ahead, over a direct BLE broadcast between two devices " +
+                "(no phone or internet needed)."),
+        )
+        layout.buildDirectory.file("manifest.json").get().asFile
+            .writeText(groovy.json.JsonBuilder(manifest).toPrettyString())
+        println("Generated manifest.json ${android.defaultConfig.versionName} (${android.defaultConfig.versionCode})")
+    }
+}
+
 dependencies {
     implementation(libs.hammerhead.karoo.ext)
     implementation(libs.androidx.core.ktx)

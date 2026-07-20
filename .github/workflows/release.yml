@@ -39,9 +39,19 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: ./gradlew assembleRelease
 
-      - name: Attach APK to release
+      - name: Generate manifest.json
+        run: ./gradlew generateManifest
+
+      - name: Attach APK and manifest to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cp app/build/outputs/apk/release/app-release.apk "partnerride-${{ github.event.release.tag_name }}.apk"
-          gh release upload "${{ github.event.release.tag_name }}" "partnerride-${{ github.event.release.tag_name }}.apk" --clobber
+          cp app/build/manifest.json manifest.json
+          cp art/generated-icon.png icon.png
+          gh release upload "${{ github.event.release.tag_name }}" \
+            "partnerride-${{ github.event.release.tag_name }}.apk" \
+            app/build/outputs/apk/release/app-release.apk \
+            manifest.json \
+            icon.png \
+            --clobber
