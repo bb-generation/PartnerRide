@@ -40,10 +40,12 @@ vars `KEYSTORE_BASE64` + `KEY_ALIAS`/`KEY_PASSWORD`/`KEYSTORE_PASSWORD` (the CI 
 keystore arrives as a base64 GitHub Actions repo secret, consumed by
 `.github/workflows/release.yml`). If none of this is set, it silently falls back to debug-signing
 so a bare `assembleRelease` still works — but an APK built that way must never reach a device that
-already has a real-key build, or the same uninstall problem hits. The keystore itself
-(`android-signing.jks`) is a personal multi-app key, kept outside the repo (not just gitignored —
-never generated into it), with alias `partnerride` for this app; regenerating it would force
-every existing install to be uninstalled and re-paired.
+already has a real-key build, or the same uninstall problem hits. The keystore itself is kept
+outside the repo (not just gitignored — never generated into it), with alias `partnerride`;
+regenerating it would force every existing install to be uninstalled and re-paired. Its exact
+filename/path is only recorded in the gitignored `build-signed-release.bat` — don't assume the
+name matches an older commit's version of this file, it's been renamed before after a keystore
+mixup.
 
 For testing real-key-signed builds on device without touching `local.properties`, run
 `build-signed-release.bat` (gitignored, lives at the repo root): it sets
