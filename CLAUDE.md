@@ -84,6 +84,12 @@ redundantly from every path that can want the link up — the extension service,
 settings UI — because Karoo OS may bind the extension late (or only once the data field is
 shown). Don't remove one of these triggers because it "looks duplicated".
 
+## Working with Claude Code
+
+- **Do not open pull requests unless explicitly told to for that specific change.** Committing
+  and pushing a branch is fine; opening the PR is a separate, explicit step the user asks for
+  each time — don't treat "make this change" as implying "ship it."
+
 ## Invariants that are easy to break
 
 - Packet timestamps are `Location.getTime()` (satellite UTC), **never** `System.currentTimeMillis()`
