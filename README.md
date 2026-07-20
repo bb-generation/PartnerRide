@@ -33,6 +33,22 @@ Developer-level details (BLE transport, payload byte layout, time model, gap alg
   code tag are accepted. Optional gap alert: beep + full-screen flash the first
   time the gap exceeds a threshold, re-armed when the gap closes again.
 
+## Privacy
+
+- **Nothing leaves the device except the BLE broadcast.** PartnerRide has no `INTERNET`
+  permission, makes no network calls, and has no server, no analytics, and no crash/telemetry
+  reporting of any kind. Settings (couple code, alert threshold) are stored locally on-device only.
+- **The BLE broadcast itself is plaintext, not encrypted.** Each packet carries your live GPS
+  position (lat/lon, speed, heading) and the 4-byte couple-code tag in the clear (see
+  [TECHNICAL.md](TECHNICAL.md) for the exact layout). Anyone running a BLE sniffer within range
+  (roughly 50–150 m, the same range the link itself works at) can read this — there is no pairing
+  or connection to keep it private, by design (that's what makes the link work without either
+  device touching the internet or a phone). The packet format is versioned so an encrypted v2
+  could be added later without breaking older devices.
+- Practically: this is the same trust model as an uncoded ANT+/BLE power meter or heart-rate
+  broadcast — anyone nearby with the right receiver can listen in, but it's a live, local-only
+  signal, not something collected, logged, or retained anywhere, by this extension or anyone else.
+
 ## Build
 
 Requirements: JDK 17, and GitHub Packages credentials for the `karoo-ext` dependency (it is
@@ -146,8 +162,7 @@ for losing your partner mid-ride.
   roughly 5–10 m. Treat small gaps as "together", not as centimeter truth.
 - **Straight-line distance:** on switchbacks/hairpins the road distance between riders can be much
   longer than the displayed straight-line gap.
-- The couple-code tag is broadcast in plaintext — a nearby BLE sniffer can observe the (static)
-  identifier and positions. The packet format is versioned so an encrypted v2 can be added later.
+- The BLE broadcast is unencrypted plaintext — see [Privacy](#privacy) above.
 - Exactly one partner is supported.
 
 ## Project layout
