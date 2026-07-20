@@ -9,11 +9,13 @@ plugins {
 }
 
 // Release signing key, resolved from (in order): the gitignored local.properties
-// (signing.storeFile/storePassword/keyAlias/keyPassword, for local release builds), then
-// env vars (CI convention: KEYSTORE_BASE64 + KEY_ALIAS/KEY_PASSWORD/KEYSTORE_PASSWORD from
-// GitHub secrets). This is a shared multi-app keystore — see CLAUDE.md for how it was
-// generated and which alias belongs to this app. Falls back to debug-signing if none of
-// this is configured, so a bare `assembleRelease` still works with zero setup.
+// (signing.storeFile/storePassword/keyAlias/keyPassword, for local release builds), env vars
+// KEYSTORE_FILE + KEY_ALIAS/KEY_PASSWORD/KEYSTORE_PASSWORD (a plain keystore path — the
+// convention used by the gitignored build-signed-release.bat), then env vars KEYSTORE_BASE64 +
+// KEY_ALIAS/KEY_PASSWORD/KEYSTORE_PASSWORD (CI convention: keystore arrives as a base64 GitHub
+// secret). This is a shared multi-app keystore — see CLAUDE.md for how it was generated and
+// which alias belongs to this app. Falls back to debug-signing if none of this is configured,
+// so a bare `assembleRelease` still works with zero setup.
 val localSigningProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -27,6 +29,7 @@ val releaseKeystoreFile: File? = when {
             writeBytes(Base64.getDecoder().decode(System.getenv("KEYSTORE_BASE64")))
             deleteOnExit()
         }
+    System.getenv("KEYSTORE_FILE") != null -> file(System.getenv("KEYSTORE_FILE")!!)
     localSigningProperties.getProperty("signing.storeFile") != null ->
         file(localSigningProperties.getProperty("signing.storeFile")!!)
     else -> null
