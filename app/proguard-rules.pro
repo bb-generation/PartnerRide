@@ -20,24 +20,9 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
-# kotlinx.serialization: PartnerRideSettings is JSON-encoded into DataStore (see
-# data/PartnerRideSettings.kt). Without these, R8 can strip the generated serializer classes and
-# the Companion.serializer() accessor, breaking decode at runtime (settings would silently reset).
-# Rules per https://github.com/Kotlin/kotlinx.serialization#android
--keepattributes *Annotation*, InnerClasses
--dontnote kotlinx.serialization.AnnotationsKt
-
--keepclassmembers class kotlinx.serialization.json.** {
-    *** Companion;
-}
--keepclasseswithmembers class kotlinx.serialization.json.** {
-    kotlinx.serialization.KSerializer serializer(...);
-}
-
--keep,includedescriptorclasses class net.bbgen.karoo.partnerride.**$$serializer { *; }
--keepclassmembers class net.bbgen.karoo.partnerride.** {
-    *** Companion;
-}
--keepclasseswithmembers class net.bbgen.karoo.partnerride.** {
-    kotlinx.serialization.KSerializer serializer(...);
-}
+# No manual kotlinx.serialization keep rules needed: the library (1.8.0) ships its own R8
+# consumer rules (META-INF/com.android.tools/r8/kotlinx-serialization-*.pro in
+# kotlinx-serialization-core-jvm), auto-merged by AGP for every @Serializable class in the
+# program — ours and karoo-ext's models alike. Verified against the release mapping.txt: both
+# PartnerRideSettings$$serializer and karoo-ext's own model serializers (e.g. DataPoint) survive
+# minification with all serialize/deserialize/descriptor methods intact.
