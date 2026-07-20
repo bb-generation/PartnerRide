@@ -29,6 +29,14 @@ jobs:
         run: ./gradlew test
 
       - name: Build release APK
+        env:
+          # Real release signing key (see CLAUDE.md); app/build.gradle.kts falls back to
+          # debug-signing if these are absent, but that would break in-place updates for
+          # anyone who already installed a real-key build.
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: ./gradlew assembleRelease
 
       - name: Attach APK to release

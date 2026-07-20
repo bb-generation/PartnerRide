@@ -1,8 +1,38 @@
+import java.util.Base64
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.serialization)
+}
+
+// Release signing key, resolved from (in order): the gitignored local.properties
+// (signing.storeFile/storePassword/keyAlias/keyPassword, for local release builds), env vars
+// KEYSTORE_FILE + KEY_ALIAS/KEY_PASSWORD/KEYSTORE_PASSWORD (a plain keystore path — the
+// convention used by the gitignored build-signed-release.bat), then env vars KEYSTORE_BASE64 +
+// KEY_ALIAS/KEY_PASSWORD/KEYSTORE_PASSWORD (CI convention: keystore arrives as a base64 GitHub
+// secret). This is a shared multi-app keystore — see CLAUDE.md for how it was generated and
+// which alias belongs to this app. Falls back to debug-signing if none of this is configured,
+// so a bare `assembleRelease` still works with zero setup.
+val localSigningProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+fun signingCredential(key: String, envVar: String): String? =
+    localSigningProperties.getProperty(key) ?: System.getenv(envVar)
+
+val releaseKeystoreFile: File? = when {
+    System.getenv("KEYSTORE_BASE64") != null ->
+        File.createTempFile("partnerride-release", ".jks").apply {
+            writeBytes(Base64.getDecoder().decode(System.getenv("KEYSTORE_BASE64")))
+            deleteOnExit()
+        }
+    System.getenv("KEYSTORE_FILE") != null -> file(System.getenv("KEYSTORE_FILE")!!)
+    localSigningProperties.getProperty("signing.storeFile") != null ->
+        file(localSigningProperties.getProperty("signing.storeFile")!!)
+    else -> null
 }
 
 android {
@@ -18,13 +48,24 @@ android {
         versionName = "1.5.1"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = releaseKeystoreFile
+            storePassword = signingCredential("signing.storePassword", "KEYSTORE_PASSWORD")
+            keyAlias = signingCredential("signing.keyAlias", "KEY_ALIAS")
+            keyPassword = signingCredential("signing.keyPassword", "KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Debug-signed so the assembleRelease APK can be sideloaded directly.
-            // Replace with a real keystore before public distribution.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (releaseKeystoreFile != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
     compileOptions {
