@@ -54,12 +54,19 @@ public, but GitHub Packages still requires authentication):
    ./gradlew test              # unit tests (packet codec, timestamps, gap engine, ...)
    ```
 
-The release build is debug-signed so it can be sideloaded directly. Replace the signing config
-in `app/build.gradle.kts` with a real keystore before distributing publicly.
+Official releases (the APK attached to each [GitHub Release](../../releases)) are signed with a
+real, stable key by CI, so installing a newer release over an older one just updates the app in
+place — settings (including the couple code) are preserved. A local `./gradlew assembleRelease`
+without that signing key configured falls back to **debug-signing** instead, which is a different
+key: a debug-signed build can't be installed over an official release (or vice versa) without
+uninstalling first, which wipes settings. That's fine for development, but **don't distribute a
+debug-signed APK as an update to someone already running an official release** — point people at
+the GitHub Releases page instead.
 
 ## Sideload onto the Karoo 3
 
-Via the Hammerhead companion app (no cables):
+Grab `app-release.apk` from the [latest release](../../releases/latest) (or build it yourself per
+above). Via the Hammerhead companion app (no cables):
 
 1. Install the **Hammerhead Companion** app on your phone and pair it with the Karoo.
 2. Copy `app-release.apk` to the phone (AirDrop/Drive/USB/email...).

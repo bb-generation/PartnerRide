@@ -18,7 +18,7 @@ JDK 17+ is required but the system default is Java 11 — use Android Studio's J
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 .\gradlew.bat test              # JVM unit tests (all core logic is covered here)
-.\gradlew.bat assembleRelease   # debug-signed, sideloadable APK
+.\gradlew.bat assembleRelease   # release-signed if configured, else falls back to debug-signing
 .\gradlew.bat lint              # Android lint
 ```
 
@@ -29,15 +29,31 @@ it's public: `gpr.user`/`gpr.key` (PAT with `read:packages`) in the gitignored `
 (read by custom logic in `settings.gradle.kts`, which falls back to gradle properties and
 `USERNAME`/`TOKEN` env vars for CI).
 
+**Release signing:** the release build must always be signed with the same key, or a device that
+already has a real-key build installed will refuse to install the next one (`INSTALL_FAILED_
+UPDATE_INCOMPATIBLE`) — there'd be no way to update without uninstalling and losing the couple
+code and other `PartnerRideSettings`. The signing key is resolved in `app/build.gradle.kts` from
+(in order): `local.properties` (`signing.storeFile`/`storePassword`/`keyAlias`/`keyPassword`, for
+local release builds), then env vars (`KEYSTORE_BASE64` + `KEY_ALIAS`/`KEY_PASSWORD`/
+`KEYSTORE_PASSWORD`, the CI convention — these are GitHub Actions repo secrets, consumed by
+`.github/workflows/release.yml`). If neither is set, it silently falls back to debug-signing so a
+bare `assembleRelease` still works — but an APK built that way must never reach a device that
+already has a real-key build, or the same uninstall problem hits. The keystore itself
+(`android-signing.jks`) is a personal multi-app key, kept outside the repo (not just gitignored —
+never generated into it), with alias `partnerride` for this app; regenerating it would force
+every existing install to be uninstalled and re-paired.
+
 Deploy to a Karoo over adb: `adb install -r app\build\outputs\apk\release\app-release.apk`, then
 **open the app once on the device** or the extension won't register. There is no way to exercise
 the BLE link without two physical devices; everything testable without hardware lives in `core/`.
 
 **Cutting a release:** bump `versionCode`/`versionName` in `app/build.gradle.kts` (every commit
 that changes user-visible or wire-format behavior has done this) and publishing a GitHub Release
-triggers `.github/workflows/release.yml`, which runs the unit tests, builds `assembleRelease`, and
-attaches the APK to that release. Both devices must run the same version (see packet versioning
-below), so there's no partial-rollout path — a release is an all-or-nothing swap for both riders.
+triggers `.github/workflows/release.yml`, which runs the unit tests, builds `assembleRelease`
+(real-key signed, via the `KEYSTORE_BASE64`/`KEY_ALIAS`/`KEY_PASSWORD`/`KEYSTORE_PASSWORD` repo
+secrets described above), and attaches the APK to that release. Both devices must run the same
+version (see packet versioning below), so there's no partial-rollout path — a release is an
+all-or-nothing swap for both riders.
 
 ## Architecture
 
