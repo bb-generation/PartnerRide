@@ -26,12 +26,29 @@ private val settingsKey = stringPreferencesKey("settings")
 // ignoreUnknownKeys: users up/downgrade APKs; stale JSON must never crash a data field.
 private val json = Json { ignoreUnknownKeys = true }
 
-suspend fun Context.saveSettings(settings: PartnerRideSettings) {
-    dataStore.edit { it[settingsKey] = json.encodeToString(settings) }
+private fun decodeSettings(raw: String?): PartnerRideSettings =
+    raw?.let { runCatching { json.decodeFromString<PartnerRideSettings>(it) }.getOrNull() }
+        ?: PartnerRideSettings()
+
+/**
+ * Read-modify-write *inside* the DataStore transaction, returning the stored result.
+ *
+ * The settings are one serialized blob, so transforming a separately-collected snapshot and
+ * writing it back loses concurrent edits: two updates started from the same snapshot silently
+ * drop the first one. DataStore serializes `edit` blocks, so doing the decode, the transform and
+ * the encode in here makes each update atomic against the others.
+ */
+suspend fun Context.updateSettings(
+    transform: (PartnerRideSettings) -> PartnerRideSettings,
+): PartnerRideSettings {
+    lateinit var updated: PartnerRideSettings
+    dataStore.edit { prefs ->
+        updated = transform(decodeSettings(prefs[settingsKey]))
+        prefs[settingsKey] = json.encodeToString(updated)
+    }
+    return updated
 }
 
 fun Context.streamSettings(): Flow<PartnerRideSettings> = dataStore.data.map { prefs ->
-    prefs[settingsKey]?.let {
-        runCatching { json.decodeFromString<PartnerRideSettings>(it) }.getOrNull()
-    } ?: PartnerRideSettings()
+    decodeSettings(prefs[settingsKey])
 }

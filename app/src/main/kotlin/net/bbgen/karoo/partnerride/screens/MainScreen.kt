@@ -39,8 +39,8 @@ import net.bbgen.karoo.partnerride.R
 import net.bbgen.karoo.partnerride.core.CoupleCode
 import net.bbgen.karoo.partnerride.core.GapRepository
 import net.bbgen.karoo.partnerride.data.PartnerRideSettings
-import net.bbgen.karoo.partnerride.data.saveSettings
 import net.bbgen.karoo.partnerride.data.streamSettings
+import net.bbgen.karoo.partnerride.data.updateSettings
 import net.bbgen.karoo.partnerride.service.ServiceController
 
 @Composable
@@ -75,8 +75,11 @@ fun MainScreen(
 
     fun update(transform: (PartnerRideSettings) -> PartnerRideSettings) {
         scope.launch {
-            val new = transform(settings)
-            context.saveSettings(new)
+            // Transform inside the DataStore transaction, not against the collected `settings`
+            // snapshot: that snapshot lags the store, so two quick edits (generating a code and
+            // then flipping a switch) could both start from the same stale value and the second
+            // write would silently revert the first.
+            val new = context.updateSettings(transform)
             ServiceController.sync(context, new)
         }
     }
