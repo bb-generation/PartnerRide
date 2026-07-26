@@ -95,6 +95,29 @@ class PartnerLinkService : Service() {
     /** Start times of recent BLE scans; Android blocks apps starting >5 scans per 30 s. */
     private val recentScanStarts = ArrayDeque<Long>()
 
+    /**
+     * Backoff for retrying a failed scan start. A scan failure used to be terminal — nothing
+     * retried and the 20-minute restart loop skipped a non-scanning link — so one transient
+     * SCAN_FAILED_* killed the partner link for the rest of the ride.
+     */
+    private var scanRetryDelayMs = SCAN_RETRY_BASE_MS
+
+    /** Named (so it is cancellable and cannot stack up) retry for [startScanIfAllowed]. */
+    private val scanRetryRunnable = Runnable { startScanIfAllowed() }
+
+    /** Schedules the next attempt after a *failure*, growing the backoff. Link thread only. */
+    private fun scheduleScanRetry() {
+        val delayMs = scanRetryDelayMs
+        scanRetryDelayMs = (scanRetryDelayMs * 2).coerceAtMost(SCAN_RETRY_MAX_MS)
+        postScanRetry(delayMs)
+    }
+
+    /** Re-attempts a start after [delayMs] without counting it as a failure. Link thread only. */
+    private fun postScanRetry(delayMs: Long) {
+        handler.removeCallbacks(scanRetryRunnable)
+        handler.postDelayed(scanRetryRunnable, delayMs)
+    }
+
     private val bluetoothAdapter: BluetoothAdapter?
         get() = (getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
 
@@ -380,9 +403,15 @@ class PartnerLinkService : Service() {
 
         override fun onScanFailed(errorCode: Int) {
             Log.w(TAG, "Scan failed: $errorCode")
-            scanning = false
             GapRepository.update {
                 it.copy(scanning = false, statusMessage = getString(R.string.status_scan_failed))
+            }
+            // Mutate scan state and schedule the retry on the link thread. Several SCAN_FAILED_*
+            // codes (registration failed, scanning too frequently) are transient and clear on
+            // their own, so a failure must never be the end of the link.
+            handler.post {
+                scanning = false
+                scheduleScanRetry()
             }
         }
     }
@@ -399,7 +428,8 @@ class PartnerLinkService : Service() {
             recentScanStarts.removeFirst()
         }
         if (recentScanStarts.size >= 4) {
-            handler.postDelayed({ startScanIfAllowed() }, 10_000L)
+            // Named runnable: repeated deferrals replace the pending retry instead of stacking.
+            postScanRetry(RATE_LIMIT_DEFER_MS)
             return
         }
 
@@ -428,16 +458,28 @@ class PartnerLinkService : Service() {
             .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
             .setReportDelay(reportDelayMs)
             .build()
+        val scanner = adapter.bluetoothLeScanner
+        if (scanner == null) {
+            // Null between the isEnabled check above and here (adapter going down): retry rather
+            // than returning into a silent, permanently non-scanning state.
+            Log.w(TAG, "No BLE scanner available")
+            scheduleScanRetry()
+            return
+        }
         try {
-            adapter.bluetoothLeScanner?.startScan(filters, scanSettings, scanCallback) ?: return
+            scanner.startScan(filters, scanSettings, scanCallback)
             recentScanStarts.addLast(now)
             scanning = true
+            // Scanning again: drop any pending retry and reset the backoff.
+            handler.removeCallbacks(scanRetryRunnable)
+            scanRetryDelayMs = SCAN_RETRY_BASE_MS
             GapRepository.update { it.copy(scanning = true) }
         } catch (e: Exception) {
             Log.w(TAG, "startScan error", e)
             GapRepository.update {
                 it.copy(scanning = false, statusMessage = getString(R.string.status_scan_failed))
             }
+            scheduleScanRetry()
         }
     }
 
@@ -467,7 +509,9 @@ class PartnerLinkService : Service() {
     private suspend fun scanRestartLoop() {
         while (scope.isActive) {
             delay(SCAN_RESTART_INTERVAL_MS)
-            handler.post { if (scanning) restartScan() }
+            // Doubles as a slow watchdog: if the link is not scanning at all (a failure the
+            // backoff retries also gave up on), start it rather than skipping the cycle.
+            handler.post { if (scanning) restartScan() else startScanIfAllowed() }
         }
     }
 
@@ -578,6 +622,13 @@ class PartnerLinkService : Service() {
         private const val SCAN_RESTART_INTERVAL_MS = 20L * 60L * 1_000L
         private const val SCAN_REPORT_DELAY_MS = 2_000L
         private const val USE_HARDWARE_FILTER = true
+
+        /** First retry delay after a failed scan start; doubles up to [SCAN_RETRY_MAX_MS]. */
+        private const val SCAN_RETRY_BASE_MS = 5_000L
+        private const val SCAN_RETRY_MAX_MS = 60_000L
+
+        /** Wait before re-attempting a start deferred by the 5-per-30 s rate limiter. */
+        private const val RATE_LIMIT_DEFER_MS = 10_000L
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, PartnerLinkService::class.java))

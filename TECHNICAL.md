@@ -283,3 +283,4 @@ Consequences:
 | Own-fix stale limit | 10 s | `FieldState.OWN_FIX_STALE_MS` |
 | GPS update interval | 1 s | `PartnerLinkService.LOCATION_INTERVAL_MS` |
 | Scan restart period | 20 min | `PartnerLinkService.SCAN_RESTART_INTERVAL_MS` |
+| Scan retry backoff | 5 s, doubling to 60 s | `PartnerLinkService.SCAN_RETRY_BASE_MS` / `_MAX_MS` |
