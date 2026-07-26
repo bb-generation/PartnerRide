@@ -186,7 +186,14 @@ class PartnerLinkService : Service() {
             }
         }
 
-        registerReceiver(btStateReceiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
+        // ACTION_STATE_CHANGED is a protected system broadcast, so NOT_EXPORTED is correct.
+        // The two-arg overload throws SecurityException on API 34+ (targetSdk is 35).
+        ContextCompat.registerReceiver(
+            this,
+            btStateReceiver,
+            IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
 
         GapRepository.update {
             it.copy(
