@@ -40,6 +40,8 @@ class GapEngine(
     private var lastAcceptElapsedMs = Long.MIN_VALUE
 
     init {
+        // 0 would leave recentGaps empty, making average() NaN and roundGapForDisplay throw.
+        require(smoothingWindow >= 1) { "smoothingWindow must be >= 1, was $smoothingWindow" }
         // The reset must fire *before* the guard goes blind, never after: past the half-window
         // the mod-65536 comparison can no longer tell "newer" from "older" and every packet is
         // rejected until the reset finally lands.
@@ -66,6 +68,9 @@ class GapEngine(
 
         if (lastAcceptElapsedMs != Long.MIN_VALUE && nowElapsedMs - lastAcceptElapsedMs > replayResetMs) {
             replayGuard.reset()
+            // The partner has been gone long enough that pre-dropout values say nothing about
+            // the gap now; averaging across the outage would drag the first reading back.
+            recentGaps.clear()
         }
         if (!replayGuard.acceptIfNewer(packet.timeMod)) return null
         lastAcceptElapsedMs = nowElapsedMs
@@ -92,12 +97,16 @@ class GapEngine(
         }
         lastSignAhead = ahead
 
-        val signed = if (ahead) distance else -distance
-        recentGaps.addLast(signed)
+        // Smooth the *magnitude* and apply the current sign, never the signed value: averaging
+        // signed gaps makes +30 / -30 / +30 read as 10 m, so a real 30 m separation would show
+        // green and skip the drop-off alert — and the sign oscillates exactly when riding side
+        // by side, which is when that matters.
+        recentGaps.addLast(distance)
         while (recentGaps.size > smoothingWindow) recentGaps.removeFirst()
+        val smoothedMagnitude = recentGaps.average()
 
         return GapResult(
-            smoothedGapMeters = recentGaps.average(),
+            smoothedGapMeters = if (ahead) smoothedMagnitude else -smoothedMagnitude,
             rawGapMeters = distance,
             partnerAhead = ahead,
         )

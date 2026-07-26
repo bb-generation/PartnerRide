@@ -7,6 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import kotlin.math.abs
 
 class GapEngineTest {
     /** ~11.1 m of latitude. */
@@ -162,6 +163,40 @@ class GapEngineTest {
 
         val lastThreeRaw = gaps.takeLast(3).map { it.rawGapMeters }
         assertEquals(lastThreeRaw.average(), gaps.last().smoothedGapMeters, 0.5)
+    }
+
+    @Test
+    fun `smoothing averages magnitude so a sign flip cannot collapse the gap`() {
+        val engine = GapEngine(smoothingWindow = 3)
+        rideNorth(engine, 4)
+        val own = engine.latestOwnFix()!!
+
+        var last: GapResult? = null
+        // Riding side by side: the partner oscillates ~33 m ahead / ~33 m behind.
+        for (i in 1..3) {
+            engine.onOwnFix(GpsFix(own.timeMs + i * 1000L, own.latDeg + i * latStep, 15.0))
+            val latest = engine.latestOwnFix()!!
+            val offset = if (i % 2 == 1) 3 * latStep else -3 * latStep
+            last = engine.onPartnerPacket(
+                PartnerPacket(timeMod(latest.timeMs), latest.latDeg + offset, 15.0),
+                nowElapsedMs = i * 1_000L,
+            )
+        }
+
+        assertNotNull(last)
+        // Averaging the signed values would report ~11 m; the separation never dropped below ~33 m.
+        assertEquals(33.0, abs(last!!.smoothedGapMeters), 2.0)
+    }
+
+    @Test
+    fun `smoothing window below 1 is rejected`() {
+        // 0 would leave the deque empty, so average() is NaN and roundGapForDisplay throws.
+        try {
+            GapEngine(smoothingWindow = 0)
+            fail("expected IllegalArgumentException for smoothingWindow = 0")
+        } catch (expected: IllegalArgumentException) {
+            // expected
+        }
     }
 
     // ------------------------------------------------------------ dead reckoning (v2)

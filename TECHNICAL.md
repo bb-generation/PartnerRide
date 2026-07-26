@@ -176,11 +176,18 @@ reliable heading exists (standing still), the last stable sign is kept.
 
 ### 6.4 Smoothing, rounding, colors
 
-- **Smoothing**: rolling average of the last `smoothingWindow` signed gap values. The
-  constructor default is `1` — effectively disabled (was `3`; the parameter and averaging
-  logic are kept, not removed, so raising it back is a one-line change). Under duty-cycled
-  scanning (§2) accepted packets already land several seconds apart, and averaging N of them
-  would multiply the displayed lag by N, working against the ~2–3 s freshness target.
+- **Smoothing**: rolling average of the last `smoothingWindow` gap **magnitudes**, with the
+  current sign applied to the result. The constructor default is `1` — effectively disabled
+  (was `3`; the parameter and averaging logic are kept, not removed, so raising it back is a
+  one-line change). Under duty-cycled scanning (§2) accepted packets already land several
+  seconds apart, and averaging N of them would multiply the displayed lag by N, working
+  against the ~2–3 s freshness target.
+  Averaging *signed* values would be wrong at any window > 1: riding side by side the sign
+  oscillates, so `+30 / −30 / +30` would report 10 m and the zone color and drop-off alert
+  (both of which consume `abs(smoothedGapMeters)`) would under-read the real separation.
+  The buffer is cleared whenever the replay guard resets, so values from before a dropout
+  never drag the first reading after it. `smoothingWindow` must be ≥ 1 (`require`); 0 would
+  make the average `NaN` and `roundGapForDisplay` throw.
 - **Display rounding**: 1 m steps up to 50 m, 5 m steps above.
 - **Zone colors** with ±1 m hysteresis on both thresholds (so GPS jitter can't strobe the
   background): green ≤ 15 m, yellow ≤ 50 m, red above — e.g. green→yellow at 16 m but
