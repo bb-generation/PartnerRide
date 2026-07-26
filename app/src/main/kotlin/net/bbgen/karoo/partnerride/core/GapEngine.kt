@@ -73,11 +73,15 @@ class GapEngine(
         // Reconstruct the partner's full GPS timestamp relative to our newest fix; fixes from
         // different times are never compared without alignment (extrapolation or matching).
         val partnerTimeMs = Timestamps.reconstruct(packet.timeMod, latestOwn.timeMs)
-        val (ownPos, partnerPos) = alignPositions(packet, latestOwn, partnerTimeMs) ?: return null
+        val (ownPos, partnerPos, ownFix) = alignPositions(packet, latestOwn, partnerTimeMs)
 
         val distance = Geo.haversineMeters(ownPos.latDeg, ownPos.lonDeg, partnerPos.latDeg, partnerPos.lonDeg)
 
-        val heading = latestOwn.bearingDeg ?: ownHeadingDeg()
+        // Heading must come from the same fix [ownPos] was derived from. On the matching fallback
+        // that is an older fix, and pairing its position with the *current* heading flips the sign
+        // through a corner: the bearing to the partner is measured from where we were, and
+        // compared against where we are now pointing.
+        val heading = ownFix.bearingDeg ?: ownHeadingDeg(ownFix)
         val ahead = if (heading != null && distance > 0.0) {
             // Sign = projection of the vector to the partner onto our own heading.
             val bearingToPartner =
@@ -112,7 +116,7 @@ class GapEngine(
         packet: PartnerPacket,
         latestOwn: GpsFix,
         partnerTimeMs: Long,
-    ): Pair<LatLon, LatLon>? {
+    ): Alignment {
         val evalTimeMs = maxOf(latestOwn.timeMs, partnerTimeMs)
         val partnerDtMs = evalTimeMs - partnerTimeMs
         val ownDtMs = evalTimeMs - latestOwn.timeMs
@@ -121,8 +125,13 @@ class GapEngine(
             partnerDtMs <= maxExtrapolationMs && ownDtMs <= maxExtrapolationMs
 
         if (!canDeadReckon) {
-            val matchedOwn = fixBuffer.closestTo(partnerTimeMs) ?: return null
-            return LatLon(matchedOwn.latDeg, matchedOwn.lonDeg) to LatLon(packet.latDeg, packet.lonDeg)
+            // closestTo cannot return null here: onPartnerPacket already established a latest fix.
+            val matchedOwn = fixBuffer.closestTo(partnerTimeMs) ?: latestOwn
+            return Alignment(
+                ownPos = LatLon(matchedOwn.latDeg, matchedOwn.lonDeg),
+                partnerPos = LatLon(packet.latDeg, packet.lonDeg),
+                ownFix = matchedOwn,
+            )
         }
 
         val partnerPos = Geo.extrapolate(
@@ -136,21 +145,33 @@ class GapEngine(
             // No own speed/heading (standing still): the position isn't going anywhere.
             LatLon(latestOwn.latDeg, latestOwn.lonDeg)
         }
-        return ownPos to partnerPos
+        return Alignment(ownPos = ownPos, partnerPos = partnerPos, ownFix = latestOwn)
     }
 
-    /** Own heading from recent own fixes: newest fix vs the most recent fix >= 2 m away. */
-    private fun ownHeadingDeg(): Double? {
+    /**
+     * Own heading *at* [fix]: [fix] vs the most recent earlier own fix >= 2 m away. Anchored on
+     * the passed fix rather than the newest one so it stays consistent with the position the
+     * bearing to the partner was measured from.
+     */
+    private fun ownHeadingDeg(fix: GpsFix): Double? {
         val fixes = fixBuffer.snapshot()
-        val newest = fixes.lastOrNull() ?: return null
-        for (i in fixes.size - 2 downTo 0) {
+        val index = fixes.indexOfLast { it.timeMs <= fix.timeMs }
+        if (index < 0) return null
+        for (i in index - 1 downTo 0) {
             val older = fixes[i]
-            if (Geo.haversineMeters(older.latDeg, older.lonDeg, newest.latDeg, newest.lonDeg) >= headingMinDistanceM) {
-                return Geo.initialBearingDeg(older.latDeg, older.lonDeg, newest.latDeg, newest.lonDeg)
+            if (Geo.haversineMeters(older.latDeg, older.lonDeg, fix.latDeg, fix.lonDeg) >= headingMinDistanceM) {
+                return Geo.initialBearingDeg(older.latDeg, older.lonDeg, fix.latDeg, fix.lonDeg)
             }
         }
         return null
     }
+
+    /** Both positions brought to a common evaluation time, plus the own fix [ownPos] came from. */
+    private data class Alignment(
+        val ownPos: LatLon,
+        val partnerPos: LatLon,
+        val ownFix: GpsFix,
+    )
 
     companion object {
         /**

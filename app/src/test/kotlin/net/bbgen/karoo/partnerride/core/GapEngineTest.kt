@@ -293,6 +293,33 @@ class GapEngineTest {
     }
 
     @Test
+    fun `sign uses the heading of the matched fix, not the post-corner heading`() {
+        val engine = GapEngine()
+        // North for 3 s...
+        for (t in 0..3) {
+            engine.onOwnFix(GpsFix(base + t * 1000L, 47.0 + t * latStep, 15.0))
+        }
+        // ...then a hard turn onto ~135° (south-east); ~11 m per step either way.
+        val cornerLat = 47.0 + 3 * latStep
+        val lonStep = 1.47e-4
+        for (t in 4..5) {
+            engine.onOwnFix(GpsFix(base + t * 1000L, cornerLat - (t - 3) * latStep, 15.0 + (t - 3) * lonStep))
+        }
+
+        // Partner fix from t=2, due north of where we were then — i.e. ahead at that moment.
+        // Sentinel speed/heading forces the timestamp-matching fallback.
+        val result = engine.onPartnerPacket(
+            PartnerPacket(timeMod(base + 2000L), 47.0 + 2 * latStep + 10 * latStep, 15.0),
+            nowElapsedMs = 1_000L,
+        )
+
+        assertNotNull(result)
+        // Measuring the bearing from the t=2 position but comparing it against the *current*
+        // south-east heading reports the partner as behind.
+        assertTrue(result!!.partnerAhead)
+    }
+
+    @Test
     fun `replay reset window must stay below the guard's ambiguity limit`() {
         // Guards the B1 regression: a reset slower than the half-window reopens the dead band.
         assertTrue(GapEngine.DEFAULT_REPLAY_RESET_MS < GapEngine.REPLAY_AMBIGUITY_MS)
