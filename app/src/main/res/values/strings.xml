@@ -31,6 +31,7 @@
     <string name="status_advertise_failed">Bluetooth advertising failed</string>
     <string name="status_scan_failed">Bluetooth scan failed</string>
     <string name="status_service_start_blocked">Link service blocked in background — open PartnerRide once</string>
+    <string name="status_link_start_failed">Link could not start</string>
     <string name="grant_permissions">Grant permissions</string>
 
     <string name="alert_title">Partner gap!</string>

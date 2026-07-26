@@ -176,8 +176,26 @@ class PartnerLinkService : Service() {
 
         wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "partnerride:link")
-            .also { it.acquire() }
+            // Deliberately untimed: the link has to survive a ride of any length, and any
+            // timeout short enough to bound a leak is short enough to break a long ride. The
+            // leak a timeout would guard against is closed by startLink()'s catch instead,
+            // which stops the service so onDestroy releases the lock.
+            .also { @Suppress("WakelockTimeout") it.acquire() }
 
+        try {
+            startLink()
+        } catch (e: Exception) {
+            // Anything in here throwing used to skip onDestroy entirely, holding the partial
+            // wakelock (and the CPU) until the process died.
+            Log.e(TAG, "Link startup failed", e)
+            stopReason = getString(R.string.status_link_start_failed)
+            GapRepository.update { it.copy(statusMessage = stopReason) }
+            stopSelf()
+        }
+    }
+
+    /** Everything after the wakelock; separated so a failure can unwind via [onDestroy]. */
+    private fun startLink() {
         karooSystem = KarooSystemService(applicationContext)
         karooSystem.connect { connected ->
             if (connected) {
