@@ -1,0 +1,56 @@
+name: CI
+
+# The release workflow only runs on `release: published`, so before this existed the tests,
+# the compile and lint were first exercised *after* a release had been cut — and a commit that
+# broke them was discovered by the release failing, leaving a published release with no APK.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: read # karoo-ext from GitHub Packages
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      # settings.gradle.kts resolves GitHub Packages credentials from these
+      USERNAME: ${{ github.actor }}
+      TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Run unit tests
+        run: ./gradlew test
+
+      - name: Android lint
+        run: ./gradlew lint
+
+      # Deliberately debug, not release: this workflow has no signing secrets, and
+      # app/build.gradle.kts now refuses to debug-sign a release build under CI.
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: reports
+          path: |
+            app/build/reports/tests/
+            app/build/reports/lint-results-*.html
+          if-no-files-found: ignore
+          retention-days: 14

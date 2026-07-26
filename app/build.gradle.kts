@@ -81,6 +81,29 @@ android {
     }
 }
 
+// The debug-signing fallback above exists so a bare `assembleRelease` works with zero setup
+// locally. In CI it is a trap: a release APK signed with the debug key cannot be installed over
+// an existing real-key build (INSTALL_FAILED_UPDATE_INCOMPATIBLE), and the only way out for a
+// user is an uninstall that loses their couple code. A missing secret must therefore fail the
+// build rather than quietly attach an unusable APK to a published release.
+val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
+    description = "Fails a CI release build when the real signing key is not configured"
+    val keystoreConfigured = releaseKeystoreFile != null
+    val isCi = System.getenv("CI") != null
+    doLast {
+        if (isCi && !keystoreConfigured) {
+            error(
+                "Release signing is not configured but CI is set — refusing to fall back to " +
+                    "debug signing. Check the KEYSTORE_BASE64, KEY_ALIAS, KEY_PASSWORD and " +
+                    "KEYSTORE_PASSWORD repository secrets.",
+            )
+        }
+    }
+}
+tasks.matching { it.name == "assembleRelease" }.configureEach {
+    dependsOn(verifyReleaseSigning)
+}
+
 // manifest.json for Karoo OS's MANIFEST_URL update check (AndroidManifest.xml) and, if ever
 // submitted, the curated Extensions Library. Hosted at a stable GitHub Releases "latest" URL, so
 // it's regenerated and re-uploaded on every release rather than committed to the repo.
