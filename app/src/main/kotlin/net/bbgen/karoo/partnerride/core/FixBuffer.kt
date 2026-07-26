@@ -20,13 +20,29 @@ data class GpsFix(
  * A received partner fix is matched against the own fix closest in GPS time — never against the
  * current position.
  */
-class FixBuffer(private val windowMs: Long = DEFAULT_WINDOW_MS) {
+class FixBuffer(
+    private val windowMs: Long = DEFAULT_WINDOW_MS,
+    /** |Δt| beyond which the GPS clock is treated as having jumped rather than advanced. */
+    private val maxJumpMs: Long = DEFAULT_MAX_JUMP_MS,
+) {
     private val fixes = ArrayDeque<GpsFix>()
 
     @Synchronized
     fun add(fix: GpsFix) {
+        val newest = fixes.lastOrNull()
+        if (newest != null && abs(fix.timeMs - newest.timeMs) > maxJumpMs) {
+            // A discontinuity, not motion. One Location.getTime() far in the future used to
+            // evict the whole buffer and then reject every subsequent (correct) fix forever,
+            // since they all compare <= against the poisoned value — and the service kept
+            // reporting a fresh own fix, so the field showed a gap against a frozen position
+            // instead of NO GPS. Restart the timeline from this fix: whichever of the two was
+            // wrong, the next real fix re-establishes it.
+            fixes.clear()
+            fixes.addLast(fix)
+            return
+        }
         // GPS time must move forward; drop duplicates/out-of-order fixes.
-        if (fixes.isNotEmpty() && fix.timeMs <= fixes.last().timeMs) return
+        if (newest != null && fix.timeMs <= newest.timeMs) return
         fixes.addLast(fix)
         while (fixes.first().timeMs < fix.timeMs - windowMs) fixes.removeFirst()
     }
@@ -45,5 +61,11 @@ class FixBuffer(private val windowMs: Long = DEFAULT_WINDOW_MS) {
 
     companion object {
         const val DEFAULT_WINDOW_MS = 5_000L
+
+        /**
+         * Generous enough that a real GPS outage never trips it by accident — and harmless when
+         * it does, since a gap that long would prune the buffer empty anyway.
+         */
+        const val DEFAULT_MAX_JUMP_MS = 60_000L
     }
 }

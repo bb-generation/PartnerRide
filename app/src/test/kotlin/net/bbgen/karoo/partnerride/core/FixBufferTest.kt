@@ -41,4 +41,36 @@ class FixBufferTest {
         assertEquals(1, buffer.snapshot().size)
         assertEquals(1.0, buffer.latest()!!.latDeg, 0.0)
     }
+
+    @Test
+    fun `a far-future timestamp does not wedge the buffer forever`() {
+        val buffer = FixBuffer()
+        for (t in 0..3) buffer.add(GpsFix(t * 1000L, 47.0, 15.0))
+
+        // One bogus Location.getTime() a day into the future.
+        buffer.add(GpsFix(86_400_000L, 1.0, 1.0))
+        assertEquals(86_400_000L, buffer.latest()!!.timeMs)
+        assertEquals(1, buffer.snapshot().size)
+
+        // The next normal fix must be accepted, not rejected forever for being "older".
+        buffer.add(GpsFix(4000L, 47.5, 15.5))
+        assertEquals(4000L, buffer.latest()!!.timeMs)
+        assertEquals(1, buffer.snapshot().size)
+
+        // ...and the timeline continues normally from there.
+        buffer.add(GpsFix(5000L, 47.6, 15.6))
+        assertEquals(5000L, buffer.latest()!!.timeMs)
+        assertEquals(2, buffer.snapshot().size)
+    }
+
+    @Test
+    fun `a normal GPS gap below the jump limit keeps accumulating`() {
+        val buffer = FixBuffer()
+        buffer.add(GpsFix(0L, 47.0, 15.0))
+        // 30 s outage: under the 60 s jump limit, so it is ordinary forward progress. The
+        // window prune drops the stale fix, but the new one is kept.
+        buffer.add(GpsFix(30_000L, 47.1, 15.1))
+        assertEquals(30_000L, buffer.latest()!!.timeMs)
+        assertEquals(1, buffer.snapshot().size)
+    }
 }

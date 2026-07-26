@@ -286,6 +286,7 @@ Consequences:
 | Packet size / version | 19 / 1 | `PacketCodec` |
 | Timestamp modulus | 65 536 ms | `PacketCodec.TIME_MOD` |
 | Own-fix ring buffer window | 5 s | `FixBuffer.DEFAULT_WINDOW_MS` |
+| GPS clock-jump limit | 60 s | `FixBuffer.DEFAULT_MAX_JUMP_MS` |
 | Extrapolation cap | 3 s | `GapEngine.maxExtrapolationMs` |
 | Replay-guard reset | 30 s | `GapEngine.DEFAULT_REPLAY_RESET_MS` (must be < 32.768 s) |
 | Smoothing window | 1 value (disabled; was 3) | `GapEngine.smoothingWindow` |
