@@ -694,7 +694,22 @@ class PartnerLinkService : Service() {
         private const val RATE_LIMIT_DEFER_MS = 10_000L
 
         fun start(context: Context) {
-            ContextCompat.startForegroundService(context, Intent(context, PartnerLinkService::class.java))
+            try {
+                ContextCompat.startForegroundService(
+                    context,
+                    Intent(context, PartnerLinkService::class.java),
+                )
+            } catch (e: Exception) {
+                // Android 12+ throws ForegroundServiceStartNotAllowedException for a background
+                // FGS start with no applicable exemption. Two of the redundant start triggers —
+                // the extension service's settings collector and the data field's startView —
+                // run with no visible activity, and an uncaught throw there kills the collecting
+                // coroutine and blanks the field. Opening the app recovers it, so say so.
+                Log.w(TAG, "Foreground service start refused", e)
+                GapRepository.update {
+                    it.copy(statusMessage = context.getString(R.string.status_service_start_blocked))
+                }
+            }
         }
 
         fun stop(context: Context) {
