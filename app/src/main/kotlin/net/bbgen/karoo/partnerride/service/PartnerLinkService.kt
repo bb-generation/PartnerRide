@@ -137,6 +137,14 @@ class PartnerLinkService : Service() {
     /** elapsedRealtime of the last fired gap alert; link-thread confined. */
     private var lastAlertElapsedMs = Long.MIN_VALUE
 
+    /**
+     * Backoff for restarting a failed advertising set. Without it a permanent failure (e.g. the
+     * controller being out of advertising instances) was retried on every GPS fix — a 1 Hz
+     * Binder + radio call for the whole ride. Link-thread confined.
+     */
+    private var advertisingRetryAfterMs = 0L
+    private var advertisingBackoffMs = ADVERTISE_RETRY_BASE_MS
+
     /** Start times of recent BLE scans; Android blocks apps starting >5 scans per 30 s. */
     private val recentScanStarts = ArrayDeque<Long>()
 
@@ -427,6 +435,14 @@ class PartnerLinkService : Service() {
             handler.post {
                 advertisingStartPending = false
                 advertisingSet = if (started) set else null
+                if (started) {
+                    advertisingRetryAfterMs = 0L
+                    advertisingBackoffMs = ADVERTISE_RETRY_BASE_MS
+                } else {
+                    advertisingRetryAfterMs = SystemClock.elapsedRealtime() + advertisingBackoffMs
+                    advertisingBackoffMs =
+                        (advertisingBackoffMs * 2).coerceAtMost(ADVERTISE_RETRY_MAX_MS)
+                }
             }
             GapRepository.update {
                 if (started) {
@@ -434,6 +450,23 @@ class PartnerLinkService : Service() {
                 } else {
                     it.copy(advertising = false, statusMessage = getString(R.string.status_advertise_failed))
                 }
+            }
+        }
+
+        // Without this override a failing in-place payload update (data too large, or a previous
+        // operation still pending on some stacks) was invisible: GapRepository kept reporting
+        // advertising = true while the partner received nothing at all.
+        override fun onAdvertisingDataSet(set: AdvertisingSet?, status: Int) {
+            if (status == ADVERTISE_SUCCESS) {
+                GapRepository.update { it.copy(advertising = true) }
+                return
+            }
+            Log.w(TAG, "setAdvertisingData failed: $status")
+            // Drop the handle so the next GPS fix starts a fresh set instead of writing into
+            // one the controller is rejecting.
+            handler.post { advertisingSet = null }
+            GapRepository.update {
+                it.copy(advertising = false, statusMessage = getString(R.string.status_advertise_failed))
             }
         }
 
@@ -467,7 +500,9 @@ class PartnerLinkService : Service() {
             if (set != null) {
                 // In-place payload update: no advertising restart churn.
                 set.setAdvertisingData(data)
-            } else if (!advertisingStartPending) {
+            } else if (!advertisingStartPending &&
+                SystemClock.elapsedRealtime() >= advertisingRetryAfterMs
+            ) {
                 advertisingStartPending = true
                 // Legacy advertisement (fits ~24 usable payload bytes), ~250 ms interval, max TX
                 // power. Own GPS fixes only change ~1x/s, so INTERVAL_LOW's ~100 ms (10 TX/s) was
@@ -486,6 +521,9 @@ class PartnerLinkService : Service() {
             }
         } catch (e: Exception) {
             advertisingStartPending = false
+            // Drop the handle too: if setAdvertisingData threw, writing into the same set again
+            // on the next fix just repeats the failure.
+            advertisingSet = null
             Log.w(TAG, "Advertising error", e)
             GapRepository.update {
                 it.copy(advertising = false, statusMessage = getString(R.string.status_advertise_failed))
@@ -799,6 +837,10 @@ class PartnerLinkService : Service() {
 
         /** Hard floor between two gap alerts, whatever the gap does in between. */
         private const val ALERT_MIN_INTERVAL_MS = 30_000L
+
+        /** First retry delay after a failed advertising start; doubles up to the max. */
+        private const val ADVERTISE_RETRY_BASE_MS = 5_000L
+        private const val ADVERTISE_RETRY_MAX_MS = 60_000L
 
         fun start(context: Context) {
             try {
