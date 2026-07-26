@@ -18,6 +18,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # versionCode/versionName are hand-edited (see CLAUDE.md). Publishing a tag without
+      # bumping them builds the *old* version, generates a manifest.json claiming that old
+      # versionCode, and uploads it to the stable latest/download/manifest.json that
+      # MANIFEST_URL points at — so every installed copy compares the same code against itself
+      # and no device is ever told an update exists. Silently. Catch it before the build.
+      - name: Check versionName matches the release tag
+        run: |
+          tag='${{ github.event.release.tag_name }}'
+          expected="${tag#v}"
+          actual=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::Release tag '$tag' expects versionName '$expected', but app/build.gradle.kts has '$actual'. Bump versionCode/versionName and re-publish."
+            exit 1
+          fi
+          echo "versionName $actual matches tag $tag"
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -42,16 +58,28 @@ jobs:
       - name: Generate manifest.json
         run: ./gradlew generateManifest
 
-      - name: Attach APK and manifest to release
+      - name: Attach APK to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cp app/build/outputs/apk/release/app-release.apk "partnerride-${{ github.event.release.tag_name }}.apk"
-          cp app/build/manifest.json manifest.json
-          cp art/generated-icon.png icon.png
           gh release upload "${{ github.event.release.tag_name }}" \
             "partnerride-${{ github.event.release.tag_name }}.apk" \
             app/build/outputs/apk/release/app-release.apk \
+            --clobber
+
+      # Only stable releases feed the update channel. GitHub's /releases/latest never resolves
+      # to a pre-release, so a pre-release's manifest.json would advertise latest/download URLs
+      # that still point at the previous stable build — self-contradictory metadata. Testers
+      # still get the APK from the step above.
+      - name: Attach manifest and icon to release
+        if: github.event.release.prerelease == false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp app/build/manifest.json manifest.json
+          cp art/generated-icon.png icon.png
+          gh release upload "${{ github.event.release.tag_name }}" \
             manifest.json \
             icon.png \
             --clobber
