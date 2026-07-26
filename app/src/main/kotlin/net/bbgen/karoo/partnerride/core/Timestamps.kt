@@ -22,6 +22,25 @@ object Timestamps {
         if (diff <= -HALF) diff += MOD
         return referenceMs + diff
     }
+
+    /**
+     * Orders one scan batch chronologically by fix time.
+     *
+     * [ReplayGuard] only accepts strictly-newer values, so if the controller hands back a batch
+     * out of chronological order everything after the first accepted packet is discarded and the
+     * gap is computed from a fix up to a whole batch window old.
+     *
+     * A batch spans ~2 s, far less than the 65.536 s modulus, so the values are contiguous — but
+     * they can straddle the wrap. A spread wider than the half-window means they do, and rotating
+     * the space by half a modulus moves the discontinuity to the edges so a plain sort is correct.
+     */
+    fun chronological(packets: List<PartnerPacket>): List<PartnerPacket> {
+        if (packets.size < 2) return packets
+        val min = packets.minOf { it.timeMod }
+        val max = packets.maxOf { it.timeMod }
+        if (max - min <= HALF) return packets.sortedBy { it.timeMod }
+        return packets.sortedBy { (it.timeMod + HALF) % MOD }
+    }
 }
 
 /**

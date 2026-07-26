@@ -84,4 +84,33 @@ class TimestampsTest {
         guard.reset()
         assertTrue(guard.acceptIfNewer(1000))
     }
+
+    private fun packet(timeMod: Int) = PartnerPacket(timeMod, 47.0, 15.0)
+
+    @Test
+    fun `chronological orders a batch by fix time`() {
+        val sorted = Timestamps.chronological(listOf(packet(3000), packet(1000), packet(2000)))
+        assertEquals(listOf(1000, 2000, 3000), sorted.map { it.timeMod })
+    }
+
+    @Test
+    fun `chronological handles a batch straddling the mod-65536 wrap`() {
+        // A ~2 s batch spanning the wrap: 65100, 65600 -> 64, 66100 -> 564.
+        val sorted = Timestamps.chronological(listOf(packet(564), packet(65_100), packet(64)))
+        assertEquals(listOf(65_100, 64, 564), sorted.map { it.timeMod })
+    }
+
+    @Test
+    fun `chronological leaves trivial batches alone`() {
+        assertEquals(emptyList<Int>(), Timestamps.chronological(emptyList()).map { it.timeMod })
+        assertEquals(listOf(7), Timestamps.chronological(listOf(packet(7))).map { it.timeMod })
+    }
+
+    @Test
+    fun `an ordered batch is accepted in full by the replay guard`() {
+        val guard = ReplayGuard()
+        val batch = Timestamps.chronological(listOf(packet(3000), packet(1000), packet(2000)))
+        // Unsorted, the 3000 would be taken first and the rest rejected as replays.
+        assertTrue(batch.all { guard.acceptIfNewer(it.timeMod) })
+    }
 }

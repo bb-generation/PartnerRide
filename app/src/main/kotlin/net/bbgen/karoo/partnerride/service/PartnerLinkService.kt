@@ -57,6 +57,8 @@ import net.bbgen.karoo.partnerride.core.GapRepository
 import net.bbgen.karoo.partnerride.core.GapResult
 import net.bbgen.karoo.partnerride.core.GpsFix
 import net.bbgen.karoo.partnerride.core.PacketCodec
+import net.bbgen.karoo.partnerride.core.PartnerPacket
+import net.bbgen.karoo.partnerride.core.Timestamps
 import net.bbgen.karoo.partnerride.core.ZoneTracker
 import net.bbgen.karoo.partnerride.core.roundGapForDisplay
 import net.bbgen.karoo.partnerride.data.PartnerRideSettings
@@ -268,13 +270,10 @@ class PartnerLinkService : Service() {
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            stopSelf()
-            return START_NOT_STICKY
-        }
-        return START_STICKY
-    }
+    // Stopping goes through ServiceController.sync -> stop(), which uses stopService(); there is
+    // no stop action to handle here (the ACTION_STOP branch that used to live here was dead code,
+    // with nothing anywhere constructing that intent).
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
         scope.cancel()
@@ -379,7 +378,12 @@ class PartnerLinkService : Service() {
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) = onOwnFix(location)
 
-        override fun onProviderEnabled(provider: String) {}
+        override fun onProviderEnabled(provider: String) {
+            // Clear the message onProviderDisabled put up; it used to stay on the status line
+            // for the rest of the session even once GPS was back.
+            val gpsOff = getString(R.string.status_gps_off)
+            GapRepository.update { if (it.statusMessage == gpsOff) it.copy(statusMessage = null) else it }
+        }
 
         override fun onProviderDisabled(provider: String) {
             GapRepository.update { it.copy(statusMessage = getString(R.string.status_gps_off)) }
@@ -390,6 +394,12 @@ class PartnerLinkService : Service() {
     private fun startLocationUpdates() {
         try {
             val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            // requestLocationUpdates does not throw for a disabled provider — it simply never
+            // delivers — so without this check a GPS-off device reported nothing at all and the
+            // only symptom was the field ageing into NO GPS ten seconds later.
+            if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                GapRepository.update { it.copy(statusMessage = getString(R.string.status_gps_off)) }
+            }
             // GPS provider: Location.getTime() is satellite-derived UTC, which is what the
             // packet timestamps require. Fused/network providers are unavailable anyway (no GMS).
             locationManager.requestLocationUpdates(
@@ -549,7 +559,7 @@ class PartnerLinkService : Service() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             // Fires per-advertisement when batching is off/unsupported. Callbacks arrive on the
             // main thread; do all work on the link thread.
-            handler.post { handleScanResult(result) }
+            handler.post { decodePacket(result)?.let(::handlePartnerPacket) }
         }
 
         override fun onBatchScanResults(results: MutableList<ScanResult>) {
@@ -557,7 +567,14 @@ class PartnerLinkService : Service() {
             // controller buffers matches on its own and wakes the AP once per delay window
             // instead of once per advertisement, cutting CPU/Binder wakeups without dropping any
             // packets (handleScanResult's replay guard still de-dupes retransmissions).
-            handler.post { results.forEach(::handleScanResult) }
+            val batch = results.toList()
+            handler.post {
+                // Sort before dispatching: the replay guard accepts only strictly-newer fix
+                // times, so a batch delivered out of chronological order had everything after
+                // its first accepted packet discarded as a replay.
+                Timestamps.chronological(batch.mapNotNull(::decodePacket))
+                    .forEach(::handlePartnerPacket)
+            }
         }
 
         override fun onScanFailed(errorCode: Int) {
@@ -676,14 +693,18 @@ class PartnerLinkService : Service() {
         }
     }
 
-    private fun handleScanResult(result: ScanResult) {
-        val payload = result.scanRecord?.getManufacturerSpecificData(PacketCodec.MANUFACTURER_ID) ?: return
+    private fun decodePacket(result: ScanResult): PartnerPacket? {
+        val payload = result.scanRecord?.getManufacturerSpecificData(PacketCodec.MANUFACTURER_ID)
+            ?: return null
         val packet = PacketCodec.decode(payload, coupleTag)
         if (packet == null) {
             // Malformed/foreign packets are expected (shared test manufacturer ID): debug-only log.
             Log.d(TAG, "Discarded packet (${payload.size} bytes)")
-            return
         }
+        return packet
+    }
+
+    private fun handlePartnerPacket(packet: PartnerPacket) {
         val now = SystemClock.elapsedRealtime()
         val gap = engine.onPartnerPacket(packet, now) ?: return
 
@@ -819,7 +840,6 @@ class PartnerLinkService : Service() {
         private const val CHANNEL_ID = "partnerride_link"
         private const val NOTIFICATION_ID = 1001
         private const val BT_RESOURCE_ID = "partnerride-link"
-        private const val ACTION_STOP = "net.bbgen.karoo.partnerride.STOP"
         private const val LOCATION_INTERVAL_MS = 1_000L
         private const val SCAN_RESTART_INTERVAL_MS = 20L * 60L * 1_000L
         private const val SCAN_REPORT_DELAY_MS = 2_000L
