@@ -106,6 +106,27 @@ class PacketCodecTest {
     }
 
     @Test
+    fun `out-of-range heading bytes are rejected, not aliased`() {
+        val bytes = PacketCodec.encode(tag, 1L, 1.0, 2.0, speedMps = 5.0, headingDeg = 90.0)
+        // The encoder only ever emits 0..179 (2° steps) or 0xFF. 200 used to survive as
+        // (200 * 2) % 360 = 40°, i.e. a plausible-looking but fabricated heading.
+        for (raw in intArrayOf(180, 200, 250, 254)) {
+            bytes[18] = raw.toByte()
+            assertNull("raw heading $raw must be rejected", PacketCodec.decode(bytes, tag))
+        }
+    }
+
+    @Test
+    fun `the highest legal heading byte still decodes`() {
+        val bytes = PacketCodec.encode(tag, 1L, 1.0, 2.0, speedMps = 5.0, headingDeg = 90.0)
+        bytes[18] = 179.toByte()
+        assertEquals(358.0, PacketCodec.decode(bytes, tag)!!.headingDeg!!, 1e-9)
+        // 0xFF stays the "unknown" sentinel rather than an out-of-range value.
+        bytes[18] = 0xFF.toByte()
+        assertNull(PacketCodec.decode(bytes, tag)!!.headingDeg)
+    }
+
+    @Test
     fun `wrong length and null are rejected`() {
         val bytes = PacketCodec.encode(tag, 1L, 1.0, 2.0)
         assertNull(PacketCodec.decode(bytes.copyOf(17), tag)) // v1-sized 17-byte packet

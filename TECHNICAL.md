@@ -91,9 +91,11 @@ In order, each failure is a **silent drop** (debug-level log only, never a crash
 2. Version == 1
 3. Magic == `"PG"`
 4. Couple tag == own tag (byte compare)
-5. Replay guard: fix timestamp strictly newer than the last accepted one (§5)
+5. Heading byte is 0–179 or the `0xFF` sentinel — a conforming sender emits nothing else, and
+   aliasing an out-of-range value through `% 360` would fabricate a plausible heading
+6. Replay guard: fix timestamp strictly newer than the last accepted one (§5)
 
-Steps 1–4 also protect against foreign devices using the same test manufacturer ID — such
+Steps 1–5 also protect against foreign devices using the same test manufacturer ID — such
 packets are expected background noise.
 
 ## 5. Time model

@@ -47,6 +47,9 @@ object PacketCodec {
     /** Sentinel for "speed/heading invalid or unknown" in bytes 17/18. */
     private const val INVALID_SENTINEL = 0xFF
 
+    /** Heading is stored in 2° steps, so only raw values 0..179 are legal. */
+    private const val HEADING_STEPS = 180
+
     private const val MAGIC_0: Byte = 0x50 // 'P'
     private const val MAGIC_1: Byte = 0x47 // 'G'
 
@@ -88,12 +91,17 @@ object PacketCodec {
         val lon = buf.int / 1e7
         val speedRaw = buf.get().toInt() and 0xFF
         val headingRaw = buf.get().toInt() and 0xFF
+        // A conforming sender only ever emits 0..179 or the sentinel. Anything in between is a
+        // corrupt or foreign packet — this rides on the shared SIG *test* manufacturer ID, so
+        // those are expected background noise — and gets discarded like every other validation
+        // failure. Aliasing it through `% 360` instead turned e.g. 200 into a confident 40°.
+        if (headingRaw != INVALID_SENTINEL && headingRaw >= HEADING_STEPS) return null
         return PartnerPacket(
             timeMod = timeMod,
             latDeg = lat,
             lonDeg = lon,
             speedMps = if (speedRaw == INVALID_SENTINEL) null else speedRaw / 4.0,
-            headingDeg = if (headingRaw == INVALID_SENTINEL) null else (headingRaw * 2.0) % 360.0,
+            headingDeg = if (headingRaw == INVALID_SENTINEL) null else headingRaw * 2.0,
         )
     }
 
@@ -106,6 +114,6 @@ object PacketCodec {
     private fun encodeHeading(headingDeg: Double?): Int {
         if (headingDeg == null) return INVALID_SENTINEL
         // Round on the half-degree grid, wrapping 360 back to 0 (values 0..179).
-        return Math.round(headingDeg.mod(360.0) / 2.0).toInt() % 180
+        return Math.round(headingDeg.mod(360.0) / 2.0).toInt() % HEADING_STEPS
     }
 }
