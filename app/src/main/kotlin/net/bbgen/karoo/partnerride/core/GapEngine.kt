@@ -77,14 +77,18 @@ class GapEngine(
             // the gap now; averaging across the outage would drag the first reading back.
             recentGaps.clear()
         }
-        if (!replayGuard.acceptIfNewer(packet.timeMod)) return null
-        lastAcceptElapsedMs = nowElapsedMs
+        // Check without recording: a packet we end up unable to align must not burn the replay
+        // slot, or a retransmission that *could* have been used gets dropped as a replay.
+        if (!replayGuard.isNewer(packet.timeMod)) return null
 
         // Reconstruct the partner's full GPS timestamp relative to our newest fix; fixes from
         // different times are never compared without alignment (extrapolation or matching).
         val partnerTimeMs = Timestamps.reconstruct(packet.timeMod, latestOwn.timeMs)
         val (ownPos, partnerPos, ownFix) =
             alignPositions(packet, latestOwn, partnerTimeMs) ?: return null
+
+        replayGuard.accept(packet.timeMod)
+        lastAcceptElapsedMs = nowElapsedMs
 
         val distance = Geo.haversineMeters(ownPos.latDeg, ownPos.lonDeg, partnerPos.latDeg, partnerPos.lonDeg)
 

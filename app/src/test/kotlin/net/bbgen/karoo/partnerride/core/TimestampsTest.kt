@@ -85,6 +85,35 @@ class TimestampsTest {
         assertTrue(guard.acceptIfNewer(1000))
     }
 
+    @Test
+    fun `the exact half-window resolves as past, agreeing with the replay guard`() {
+        val reference = 1_000_000L
+        val refMod = (reference % 65536L).toInt()
+
+        // Exactly half a modulus away: the two candidates are equidistant, so the tie has to be
+        // broken consistently. ReplayGuard calls a forward distance of 32768 "not newer", so
+        // reconstruct must call it past.
+        val halfAway = (refMod + 32768) % 65536
+        assertEquals(reference - 32768L, Timestamps.reconstruct(halfAway, reference))
+        assertFalse(ReplayGuard().also { it.acceptIfNewer(refMod) }.acceptIfNewer(halfAway))
+
+        // One below the boundary is unambiguously newer, and both agree.
+        val justInside = (refMod + 32767) % 65536
+        assertEquals(reference + 32767L, Timestamps.reconstruct(justInside, reference))
+        assertTrue(ReplayGuard().also { it.acceptIfNewer(refMod) }.acceptIfNewer(justInside))
+    }
+
+    @Test
+    fun `reconstruct stays congruent at both ends of the offset range`() {
+        val reference = 1_000_000L
+        for (timeMod in intArrayOf(0, 1, 32_767, 32_768, 65_535)) {
+            val full = Timestamps.reconstruct(timeMod, reference)
+            assertEquals(timeMod.toLong(), full.mod(65536L))
+            val offset = full - reference
+            assertTrue("offset $offset out of range", offset in -32_768L..32_767L)
+        }
+    }
+
     private fun packet(timeMod: Int) = PartnerPacket(timeMod, 47.0, 15.0)
 
     @Test

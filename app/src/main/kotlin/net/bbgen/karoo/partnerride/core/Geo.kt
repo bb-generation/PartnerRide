@@ -1,5 +1,6 @@
 package net.bbgen.karoo.partnerride.core
 
+import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -9,6 +10,9 @@ data class LatLon(val latDeg: Double, val lonDeg: Double)
 
 object Geo {
     private const val EARTH_RADIUS_M = 6_371_000.0
+
+    /** Below this |cos(latitude)| the east/west projection is degenerate (within ~0.00006° of a pole). */
+    private const val MIN_COS_LAT = 1e-6
 
     /** Straight-line (great-circle) distance in meters. */
     fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
@@ -54,7 +58,16 @@ object Geo {
         val dNorth = distance * cos(bearing)
         val dEast = distance * sin(bearing)
         val newLat = latDeg + Math.toDegrees(dNorth / EARTH_RADIUS_M)
-        val newLon = lonDeg + Math.toDegrees(dEast / (EARTH_RADIUS_M * cos(Math.toRadians(latDeg))))
+        // At the poles cos(lat) is ~6e-17 rather than exactly 0, so this division yields a
+        // longitude offset of ~1e10 degrees instead of an obvious infinity — and that then
+        // flows into haversineMeters as numerical garbage. No rider is ever there, but an
+        // unguarded singularity that fails quietly is worth closing: drop the east component.
+        val cosLat = cos(Math.toRadians(latDeg))
+        val newLon = if (abs(cosLat) < MIN_COS_LAT) {
+            lonDeg
+        } else {
+            lonDeg + Math.toDegrees(dEast / (EARTH_RADIUS_M * cosLat))
+        }
         return LatLon(newLat, newLon)
     }
 }

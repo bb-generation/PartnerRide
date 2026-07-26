@@ -14,12 +14,17 @@ object Timestamps {
      * Returns the timestamp congruent to [timeMod] (mod 65536) that is closest to [referenceMs]
      * (the local device's most recent Location.getTime()). Handles wraparound in both directions;
      * unambiguous as long as the two fixes are within ±32.768 s of each other.
+     *
+     * The offset lands in `[-32768, +32767]`: at exactly half a modulus the two candidates are
+     * equidistant and this resolves them as *past*, matching [ReplayGuard], which treats a
+     * forward distance of exactly 32768 as not-newer. The two used to disagree at that single
+     * value — harmless in practice, but two modules sharing one convention should share it.
      */
     fun reconstruct(timeMod: Int, referenceMs: Long): Long {
         val refMod = referenceMs.mod(PacketCodec.TIME_MOD).toInt()
         var diff = timeMod - refMod
-        if (diff > HALF) diff -= MOD
-        if (diff <= -HALF) diff += MOD
+        if (diff >= HALF) diff -= MOD
+        if (diff < -HALF) diff += MOD
         return referenceMs + diff
     }
 
@@ -50,18 +55,25 @@ object Timestamps {
 class ReplayGuard {
     private var lastTimeMod = -1
 
-    fun acceptIfNewer(timeMod: Int): Boolean {
-        if (lastTimeMod < 0) {
-            lastTimeMod = timeMod
-            return true
-        }
+    /**
+     * True if [timeMod] is newer than the last accepted value, *without* recording it.
+     *
+     * Split from [accept] so a caller that may still reject the packet for its own reasons
+     * (e.g. being unable to align it to an own fix) does not burn the slot: recording first
+     * meant a retransmission that could have been used was then dropped as a replay.
+     */
+    fun isNewer(timeMod: Int): Boolean {
+        if (lastTimeMod < 0) return true
         val forward = (timeMod - lastTimeMod).mod(PacketCodec.TIME_MOD.toInt())
-        if (forward in 1 until PacketCodec.TIME_MOD.toInt() / 2) {
-            lastTimeMod = timeMod
-            return true
-        }
-        return false
+        return forward in 1 until PacketCodec.TIME_MOD.toInt() / 2
     }
+
+    /** Records [timeMod] as the newest accepted fix time. */
+    fun accept(timeMod: Int) {
+        lastTimeMod = timeMod
+    }
+
+    fun acceptIfNewer(timeMod: Int): Boolean = isNewer(timeMod).also { if (it) accept(timeMod) }
 
     /** Forget history, e.g. after the partner has been out of range long enough for the
      *  mod-65536 comparison to be meaningless. Required so recovery is never blocked by state. */

@@ -3,10 +3,12 @@ package net.bbgen.karoo.partnerride.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import net.bbgen.karoo.partnerride.data.streamSettings
 
 /**
@@ -21,10 +23,22 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
             try {
-                ServiceController.sync(context.applicationContext, context.streamSettings().first())
+                // A BroadcastReceiver held open by goAsync() has roughly 10 s before the system
+                // treats it as an ANR. If the DataStore read never completes, finish() would
+                // never be reached; time-box it so the receiver always ends cleanly.
+                withTimeout(SYNC_TIMEOUT_MS) {
+                    ServiceController.sync(context.applicationContext, context.streamSettings().first())
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Boot sync failed", e)
             } finally {
                 pending.finish()
             }
         }
+    }
+
+    private companion object {
+        const val TAG = "PartnerRide"
+        const val SYNC_TIMEOUT_MS = 8_000L
     }
 }

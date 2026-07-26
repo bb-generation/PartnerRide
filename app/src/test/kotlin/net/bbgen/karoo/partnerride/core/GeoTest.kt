@@ -1,6 +1,7 @@
 package net.bbgen.karoo.partnerride.core
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GeoTest {
@@ -35,5 +36,18 @@ class GeoTest {
         val instant = Geo.extrapolate(47.0, 15.0, speedMps = 10.0, bearingDeg = 90.0, dtSeconds = 0.0)
         assertEquals(47.0, instant.latDeg, 1e-12)
         assertEquals(15.0, instant.lonDeg, 1e-12)
+    }
+
+    @Test
+    fun `extrapolating due east at the pole does not produce garbage longitude`() {
+        // cos(toRadians(90.0)) is ~6e-17, not 0, so the unguarded division produced a longitude
+        // offset of ~1e10 degrees rather than an obvious infinity.
+        val atPole = Geo.extrapolate(90.0, 15.0, speedMps = 10.0, bearingDeg = 90.0, dtSeconds = 3.0)
+        assertEquals(15.0, atPole.lonDeg, 1e-9)
+        assertTrue(atPole.lonDeg.isFinite())
+        // The north/south component is unaffected by the guard.
+        val southFromPole =
+            Geo.extrapolate(90.0, 15.0, speedMps = 10.0, bearingDeg = 180.0, dtSeconds = 3.0)
+        assertTrue(southFromPole.latDeg < 90.0)
     }
 }

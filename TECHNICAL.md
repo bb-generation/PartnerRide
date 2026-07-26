@@ -112,9 +112,13 @@ closest to its own newest fix time — unambiguous as long as the two fixes are 
 of each other, far beyond any real BLE latency:
 
 ```
-diff = (timeMod - reference mod 65536)  normalized into (-32768, 32768]
+diff = (timeMod - reference mod 65536)  normalized into [-32768, 32767]
 fullTime = reference + diff
 ```
+
+At exactly half a modulus the two candidates are equidistant; the tie is resolved as *past*, so
+that reconstruction and the replay guard (which treats a forward distance of exactly 32768 as
+not-newer) share one convention.
 
 **Replay guard.** The last accepted `timeMod` is tracked; a packet is accepted only if it is
 0 < (new − last) mod 65536 < 32768, i.e. strictly newer within the forward half-window. This

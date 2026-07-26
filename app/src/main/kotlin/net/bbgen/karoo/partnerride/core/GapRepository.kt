@@ -24,7 +24,12 @@ data class PartnerRideState(
     /** Smoothed signed gap; positive = partner ahead. Null until the first packet. */
     val smoothedGapMeters: Double? = null,
     val partnerAhead: Boolean = true,
-    val zone: GapZone = GapZone.RED,
+    /**
+     * Matches [ZoneTracker]'s own initial zone. Unreachable on the display (FieldState
+     * short-circuits to NO SIGNAL while [smoothedGapMeters] is null), but the two used to
+     * disagree, which is exactly the kind of dormant mismatch that bites after a refactor.
+     */
+    val zone: GapZone = GapZone.GREEN,
 )
 
 /**
