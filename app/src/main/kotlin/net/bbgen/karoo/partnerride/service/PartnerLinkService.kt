@@ -618,9 +618,6 @@ class PartnerLinkService : Service() {
                     }
                 }
                 BluetoothAdapter.STATE_TURNING_OFF, BluetoothAdapter.STATE_OFF -> {
-                    advertisingSet = null
-                    advertisingStartPending = false
-                    scanning = false
                     GapRepository.update {
                         it.copy(
                             bluetoothReady = false,
@@ -628,6 +625,15 @@ class PartnerLinkService : Service() {
                             scanning = false,
                             statusMessage = getString(R.string.status_bluetooth_off),
                         )
+                    }
+                    handler.post {
+                        // Actually tear the radios down instead of only dropping the flags: a
+                        // bare `scanning = false` leaves scanCallback registered with the BLE
+                        // stack, and re-registering the same instance after BT comes back can
+                        // fail with SCAN_FAILED_ALREADY_STARTED. stopScan/stopAdvertising also
+                        // clear advertisingSet/advertisingStartPending, on the link thread.
+                        stopScan()
+                        stopAdvertising()
                     }
                 }
             }
