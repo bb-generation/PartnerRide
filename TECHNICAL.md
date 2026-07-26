@@ -237,6 +237,11 @@ PartnerLinkService (foreground, wakelock)          PartnerRideExtension (bound b
 - The gap alert dispatches karoo-ext effects (`PlayBeepPattern`, `TurnScreenOn`, `InRideAlert`);
   standard Android audio does not route to the Karoo buzzer. Armed/disarmed logic fires once per
   threshold crossing and re-arms only after the gap drops back below the threshold.
+- Both the zone hysteresis and the alert are gated on own-fix freshness
+  (`FieldState.OWN_FIX_STALE_MS`), not just the display. With own GPS stale the ring buffer still
+  holds the last fix, so the computed "gap" is really the distance *we* have covered since —
+  enough to trip the alert while the field correctly reads `NO GPS`. Packets received in that
+  state still refresh the partner-signal age but publish no gap value.
 
 ## 9. Permission model — why the app prompts where other extensions don't
 

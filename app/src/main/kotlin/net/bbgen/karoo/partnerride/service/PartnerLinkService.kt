@@ -51,6 +51,7 @@ import kotlinx.coroutines.launch
 import net.bbgen.karoo.partnerride.MainActivity
 import net.bbgen.karoo.partnerride.R
 import net.bbgen.karoo.partnerride.core.CoupleCode
+import net.bbgen.karoo.partnerride.core.FieldState
 import net.bbgen.karoo.partnerride.core.GapEngine
 import net.bbgen.karoo.partnerride.core.GapRepository
 import net.bbgen.karoo.partnerride.core.GapResult
@@ -102,6 +103,13 @@ class PartnerLinkService : Service() {
 
     /** Link-thread confined: only ever touched from [maybeAlert] via [handleScanResult]. */
     private var alertArmed = true
+
+    /**
+     * elapsedRealtime of the last own GPS fix, or null before the first one. Link-thread confined
+     * ([onOwnFix] and [handleScanResult] both run there). Used to reject gaps computed against a
+     * frozen own position — see [handleScanResult].
+     */
+    private var lastOwnFixElapsedMs: Long? = null
 
     /** Start times of recent BLE scans; Android blocks apps starting >5 scans per 30 s. */
     private val recentScanStarts = ArrayDeque<Long>()
@@ -313,8 +321,10 @@ class PartnerLinkService : Service() {
                 bearingDeg = if (location.hasBearing()) location.bearing.toDouble() else null,
             ),
         )
+        val now = SystemClock.elapsedRealtime()
+        lastOwnFixElapsedMs = now
         GapRepository.update {
-            it.copy(lastOwnFixElapsedMs = SystemClock.elapsedRealtime(), statusMessage = null)
+            it.copy(lastOwnFixElapsedMs = now, statusMessage = null)
         }
         updateAdvertisement(location)
     }
@@ -547,6 +557,19 @@ class PartnerLinkService : Service() {
         }
         val now = SystemClock.elapsedRealtime()
         val gap = engine.onPartnerPacket(packet, now) ?: return
+
+        // Own GPS stale: FixBuffer keeps the last fix indefinitely, so GapEngine would happily
+        // measure the partner against a frozen own position and report the distance *we* have
+        // travelled since as a partner gap. The data field already shows NO GPS for this, but the
+        // zone hysteresis and the drop-off alert used to consume it anyway - a 3-minute tunnel
+        // with the partner still in BLE range was enough to fire a beep + TurnScreenOn + a
+        // full-screen InRideAlert. Record that the partner was heard, but publish no gap.
+        val ownFixAge = lastOwnFixElapsedMs?.let { now - it }
+        if (ownFixAge == null || ownFixAge > FieldState.OWN_FIX_STALE_MS) {
+            GapRepository.update { it.copy(lastPacketElapsedMs = now, smoothedGapMeters = null) }
+            return
+        }
+
         val zone = zoneTracker.update(abs(gap.smoothedGapMeters))
         GapRepository.update {
             it.copy(
