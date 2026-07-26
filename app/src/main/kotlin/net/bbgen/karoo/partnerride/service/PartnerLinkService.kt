@@ -126,6 +126,17 @@ class PartnerLinkService : Service() {
      */
     private var stopReason: String? = null
 
+    /** Set once karoo-ext's connect callback reports success; dispatch is a no-op before that. */
+    @Volatile
+    private var karooConnected = false
+
+    /** Whether RequestBluetooth was actually dispatched, so the release stays symmetric. */
+    @Volatile
+    private var bluetoothRequested = false
+
+    /** elapsedRealtime of the last fired gap alert; link-thread confined. */
+    private var lastAlertElapsedMs = Long.MIN_VALUE
+
     /** Start times of recent BLE scans; Android blocks apps starting >5 scans per 30 s. */
     private val recentScanStarts = ArrayDeque<Long>()
 
@@ -206,9 +217,11 @@ class PartnerLinkService : Service() {
     private fun startLink() {
         karooSystem = KarooSystemService(applicationContext)
         karooSystem.connect { connected ->
+            karooConnected = connected
             if (connected) {
                 // Karoo OS owns the radios: ask for BT to be (and stay) on for us.
                 karooSystem.dispatch(RequestBluetooth(BT_RESOURCE_ID))
+                bluetoothRequested = true
             }
         }
 
@@ -273,8 +286,14 @@ class PartnerLinkService : Service() {
             handlerThread.quitSafely()
         }
         if (this::karooSystem.isInitialized) {
-            karooSystem.dispatch(ReleaseBluetooth(BT_RESOURCE_ID))
-            karooSystem.disconnect()
+            // Only release what we actually requested: connect() is asynchronous, so if its
+            // callback never fired, RequestBluetooth was never sent and releasing is a lie.
+            // Binder preserves ordering on a connection, so the dispatch below still reaches
+            // Karoo OS ahead of the unbind.
+            runCatching {
+                if (bluetoothRequested) karooSystem.dispatch(ReleaseBluetooth(BT_RESOURCE_ID))
+                karooSystem.disconnect()
+            }.onFailure { Log.w(TAG, "karoo-ext teardown failed", it) }
         }
         wakeLock?.let { if (it.isHeld) it.release() }
         GapRepository.serviceStopped(stopReason)
@@ -651,28 +670,50 @@ class PartnerLinkService : Service() {
                 zone = zone,
             )
         }
-        maybeAlert(gap)
+        maybeAlert(gap, now)
     }
 
     // ------------------------------------------------------------------ gap alert
 
-    private fun maybeAlert(gap: GapResult) {
+    private fun maybeAlert(gap: GapResult, nowElapsedMs: Long) {
         val s = settings
         if (!s.alertEnabled) {
             alertArmed = true
             return
         }
         val absGap = abs(gap.smoothedGapMeters)
-        if (alertArmed && absGap > s.alertThresholdMeters) {
+        val threshold = s.alertThresholdMeters.toDouble()
+        // Hysteresis band, like ZoneTracker has: a bare `> threshold` to fire and `< threshold`
+        // to re-arm meant GPS jitter straddling the threshold re-armed and re-fired repeatedly,
+        // and each fire is a 3-tone beep + TurnScreenOn + an 8 s full-screen alert.
+        if (alertArmed && absGap > threshold + ALERT_HYSTERESIS_M) {
+            // Second guard: never two alerts inside ALERT_MIN_INTERVAL_MS, whatever the gap does.
+            if (lastAlertElapsedMs != Long.MIN_VALUE &&
+                nowElapsedMs - lastAlertElapsedMs < ALERT_MIN_INTERVAL_MS
+            ) {
+                return
+            }
             // Fire once per drop-off; re-arm only after the gap closes below the threshold.
             alertArmed = false
+            lastAlertElapsedMs = nowElapsedMs
             fireGapAlert(absGap)
-        } else if (!alertArmed && absGap < s.alertThresholdMeters) {
+        } else if (!alertArmed && absGap < threshold - ALERT_HYSTERESIS_M) {
             alertArmed = true
         }
     }
 
     private fun fireGapAlert(absGapMeters: Double) {
+        // connect() is asynchronous and a packet can arrive before the binding completes, so
+        // dispatching blind either drops silently or throws onto the link thread and kills it.
+        if (!karooConnected) {
+            Log.w(TAG, "Gap alert suppressed: karoo-ext not connected")
+            return
+        }
+        runCatching { dispatchGapAlert(absGapMeters) }
+            .onFailure { Log.w(TAG, "Gap alert dispatch failed", it) }
+    }
+
+    private fun dispatchGapAlert(absGapMeters: Double) {
         // Audio must use the native karoo-ext beep API: standard Android audio (ToneGenerator,
         // MediaPlayer) may not route to the Karoo's buzzer.
         karooSystem.dispatch(
@@ -752,6 +793,12 @@ class PartnerLinkService : Service() {
 
         /** Wait before re-attempting a start deferred by the 5-per-30 s rate limiter. */
         private const val RATE_LIMIT_DEFER_MS = 10_000L
+
+        /** Dead band around the alert threshold so GPS jitter can't re-fire the beep. */
+        private const val ALERT_HYSTERESIS_M = 5.0
+
+        /** Hard floor between two gap alerts, whatever the gap does in between. */
+        private const val ALERT_MIN_INTERVAL_MS = 30_000L
 
         fun start(context: Context) {
             try {
