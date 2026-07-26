@@ -288,6 +288,7 @@ Consequences:
 | Own-fix ring buffer window | 5 s | `FixBuffer.DEFAULT_WINDOW_MS` |
 | GPS clock-jump limit | 60 s | `FixBuffer.DEFAULT_MAX_JUMP_MS` |
 | Extrapolation cap | 3 s | `GapEngine.maxExtrapolationMs` |
+| Matching-fallback error cap | 5 s | `GapEngine.maxMatchErrorMs` |
 | Replay-guard reset | 30 s | `GapEngine.DEFAULT_REPLAY_RESET_MS` (must be < 32.768 s) |
 | Smoothing window | 1 value (disabled; was 3) | `GapEngine.smoothingWindow` |
 | Scan report delay (batching) | 2 s, if supported | `PartnerLinkService.SCAN_REPORT_DELAY_MS` |

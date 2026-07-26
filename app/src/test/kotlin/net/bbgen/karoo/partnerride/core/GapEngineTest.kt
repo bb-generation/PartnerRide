@@ -318,13 +318,35 @@ class GapEngineTest {
         assertNotNull(
             engine.onPartnerPacket(PartnerPacket(timeMod(own.timeMs), own.latDeg + latStep, 15.0), 1_000L),
         )
-        // 40 s out of range: the partner's GPS clock advanced 40 s, which is past the guard's
-        // 32.768 s half-window, so mod-65536 makes the packet look 25.5 s *old*. Recovery must
-        // be immediate, not deferred to the replay reset.
-        val returning = timeMod(own.timeMs + 40_000L)
+        // 40 s out of range. Both GPS clocks are satellite time, so they advance together and
+        // our own fixes move on too — what makes the returning packet look "older" is the
+        // replay guard comparing its timeMod against the one accepted 40 s ago, which is past
+        // the 32.768 s half-window. Recovery must be immediate, not deferred to the reset.
+        val returnTimeMs = own.timeMs + 40_000L
+        engine.onOwnFix(GpsFix(returnTimeMs, own.latDeg + 40 * latStep, 15.0))
         assertNotNull(
-            engine.onPartnerPacket(PartnerPacket(returning, own.latDeg + latStep, 15.0), 41_000L),
+            engine.onPartnerPacket(
+                PartnerPacket(timeMod(returnTimeMs), own.latDeg + 41 * latStep, 15.0),
+                nowElapsedMs = 41_000L,
+            ),
         )
+    }
+
+    @Test
+    fun `a partner fix too far from any own fix is dropped, not reported as a live gap`() {
+        val engine = GapEngine()
+        rideNorth(engine, 4)
+        val own = engine.latestOwnFix()!!
+
+        // Sentinel speed/heading forces the matching fallback, and the fix time is 20 s away
+        // from anything in the 5 s own-fix buffer. closestTo would still hand back the oldest
+        // fix and the distance to it would be published as a live gap.
+        val result = engine.onPartnerPacket(
+            PartnerPacket(timeMod(own.timeMs - 20_000L), 47.5, 15.0, speedMps = null, headingDeg = null),
+            nowElapsedMs = 1_000L,
+        )
+
+        assertNull(result)
     }
 
     @Test

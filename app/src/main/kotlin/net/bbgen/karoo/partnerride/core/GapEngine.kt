@@ -33,6 +33,11 @@ class GapEngine(
     private val headingMinDistanceM: Double = 2.0,
     /** Never dead-reckon a position further than this; older fixes use the matching fallback. */
     private val maxExtrapolationMs: Long = 3_000L,
+    /**
+     * Largest own-vs-partner fix time difference the matching fallback will accept. No
+     * extrapolation happens on that path, so the time mismatch *is* the position error.
+     */
+    private val maxMatchErrorMs: Long = FixBuffer.DEFAULT_WINDOW_MS,
 ) {
     private val replayGuard = ReplayGuard()
     private val recentGaps = ArrayDeque<Double>()
@@ -78,7 +83,8 @@ class GapEngine(
         // Reconstruct the partner's full GPS timestamp relative to our newest fix; fixes from
         // different times are never compared without alignment (extrapolation or matching).
         val partnerTimeMs = Timestamps.reconstruct(packet.timeMod, latestOwn.timeMs)
-        val (ownPos, partnerPos, ownFix) = alignPositions(packet, latestOwn, partnerTimeMs)
+        val (ownPos, partnerPos, ownFix) =
+            alignPositions(packet, latestOwn, partnerTimeMs) ?: return null
 
         val distance = Geo.haversineMeters(ownPos.latDeg, ownPos.lonDeg, partnerPos.latDeg, partnerPos.lonDeg)
 
@@ -125,7 +131,7 @@ class GapEngine(
         packet: PartnerPacket,
         latestOwn: GpsFix,
         partnerTimeMs: Long,
-    ): Alignment {
+    ): Alignment? {
         val evalTimeMs = maxOf(latestOwn.timeMs, partnerTimeMs)
         val partnerDtMs = evalTimeMs - partnerTimeMs
         val ownDtMs = evalTimeMs - latestOwn.timeMs
@@ -136,6 +142,11 @@ class GapEngine(
         if (!canDeadReckon) {
             // closestTo cannot return null here: onPartnerPacket already established a latest fix.
             val matchedOwn = fixBuffer.closestTo(partnerTimeMs) ?: latestOwn
+            // closestTo always returns *something*, however far away in time. Without this bound
+            // a partner fix of any age is paired with our nearest own position and the resulting
+            // distance is published as a live gap, indistinguishable from a fresh reading — the
+            // only downstream freshness signal measures packet *receipt*, not fix time.
+            if (abs(matchedOwn.timeMs - partnerTimeMs) > maxMatchErrorMs) return null
             return Alignment(
                 ownPos = LatLon(matchedOwn.latDeg, matchedOwn.lonDeg),
                 partnerPos = LatLon(packet.latDeg, packet.lonDeg),
