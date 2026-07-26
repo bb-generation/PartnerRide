@@ -22,7 +22,12 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 .\gradlew.bat lint              # Android lint
 ```
 
-Run a single test class: `.\gradlew.bat test --tests "net.bbgen.karoo.partnerride.core.GapEngineTest"`
+Run a single test class — note this needs the concrete `testDebugUnitTest` task, since `--tests`
+is not a valid option on the aggregate `test` task ("Unknown command-line option '--tests'"):
+
+```powershell
+.\gradlew.bat testDebugUnitTest --tests "net.bbgen.karoo.partnerride.core.GapEngineTest"
+```
 
 The `io.hammerhead:karoo-ext` dependency comes from GitHub Packages and needs auth even though
 it's public: `gpr.user`/`gpr.key` (PAT with `read:packages`) in the gitignored `local.properties`
