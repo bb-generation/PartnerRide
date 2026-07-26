@@ -206,6 +206,7 @@ names the first problem to fix:
 | Runtime permissions missing | `NO PERM` | gray |
 | Link service not running (extension disabled) | `OFF` | gray |
 | Bluetooth off | `NO BT` | gray |
+| Couple code empty or < 6 digits | `NO CODE` | gray |
 | No own GPS fix yet, or own fix > 10 s old (not broadcasting) | `NO GPS` | gray |
 | No partner packet since the service started | `NO SIGNAL` | gray |
 | Packet ≤ 5 s old | `42 m ▲` | zone color (§6.4) |

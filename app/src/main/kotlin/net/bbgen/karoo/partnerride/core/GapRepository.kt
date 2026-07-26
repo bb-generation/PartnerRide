@@ -15,6 +15,8 @@ data class PartnerRideState(
     val advertising: Boolean = false,
     val scanning: Boolean = false,
     val missingPermissions: List<String> = emptyList(),
+    /** False while the couple code is empty or shorter than 6 digits: the link stays inert. */
+    val coupleCodeValid: Boolean = true,
     /** Human-readable problem shown on the settings screen, null when healthy. */
     val statusMessage: String? = null,
     val lastOwnFixElapsedMs: Long? = null,

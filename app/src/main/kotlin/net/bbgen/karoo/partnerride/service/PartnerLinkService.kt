@@ -88,6 +88,14 @@ class PartnerLinkService : Service() {
     @Volatile
     private var coupleTag = CoupleCode.tag("")
 
+    /**
+     * False until settings supply a full 6-digit code. Starts false on purpose: CoupleCode.tag("")
+     * is a valid tag, so broadcasting before the real code is known would pair this device with
+     * any other unconfigured PartnerRide in range.
+     */
+    @Volatile
+    private var coupleCodeValid = false
+
     // BLE link state. Every mutation is confined to the "partnerride-link" handler thread (BLE
     // callbacks and onDestroy post onto it rather than writing directly); @Volatile is the safety
     // net so a future direct write from the binder/main thread degrades to a visible race rather
@@ -307,9 +315,32 @@ class PartnerLinkService : Service() {
     // ------------------------------------------------------------------ settings
 
     private suspend fun collectSettings() {
+        val noCodeMessage = getString(R.string.status_no_couple_code)
         applicationContext.streamSettings().collect { new ->
             settings = new
             coupleTag = CoupleCode.tag(new.coupleCode)
+            val codeValid = CoupleCode.isValid(new.coupleCode)
+            coupleCodeValid = codeValid
+            GapRepository.update {
+                it.copy(
+                    coupleCodeValid = codeValid,
+                    statusMessage = when {
+                        !codeValid -> noCodeMessage
+                        // Only clear our own message; don't stomp on "Bluetooth is off" etc.
+                        it.statusMessage == noCodeMessage -> null
+                        else -> it.statusMessage
+                    },
+                )
+            }
+            handler.post {
+                if (codeValid) {
+                    startScanIfAllowed()
+                } else {
+                    // Advertising resumes with the next GPS fix once a code is entered.
+                    stopScan()
+                    stopAdvertising()
+                }
+            }
             if (!new.enabled) {
                 stopSelf()
             }
@@ -397,6 +428,8 @@ class PartnerLinkService : Service() {
     private fun updateAdvertisement(location: Location) {
         val adapter = bluetoothAdapter ?: return
         if (!adapter.isEnabled) return
+        // Never broadcast on the tag of an empty/partial code — see [coupleCodeValid].
+        if (!coupleCodeValid) return
         val payload = PacketCodec.encode(
             coupleTag = coupleTag,
             gpsTimeMs = location.time,
@@ -489,6 +522,8 @@ class PartnerLinkService : Service() {
     private fun startScanIfAllowed() {
         val adapter = bluetoothAdapter ?: return
         if (!adapter.isEnabled || scanning) return
+        // Don't match on the tag of an empty/partial code — see [coupleCodeValid].
+        if (!coupleCodeValid) return
 
         // Never trip Android's "5 scan starts per 30 seconds" block: if we're near the limit
         // (normal operation never is — restarts happen every ~20 min), defer the start.

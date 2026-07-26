@@ -127,6 +127,15 @@ fun MainScreen(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true,
         )
+        if (!CoupleCode.isValid(codeText)) {
+            // Without this the screen happily reports "Broadcasting: yes" on a partial code
+            // while the link is deliberately inert, with nothing saying why.
+            Text(
+                stringResource(R.string.couple_code_incomplete),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
         Button(onClick = {
             val code = CoupleCode.generate()
             codeText = code

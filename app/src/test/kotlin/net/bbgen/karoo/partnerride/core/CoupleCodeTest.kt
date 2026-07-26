@@ -55,4 +55,25 @@ class CoupleCodeTest {
             assertTrue(code.all { it.isDigit() })
         }
     }
+
+    @Test
+    fun `empty and partial codes are invalid`() {
+        // tag("") is a perfectly good tag, which is exactly why validity needs its own check:
+        // two unconfigured devices would otherwise share it and pair with each other.
+        assertFalse(CoupleCode.isValid(""))
+        assertFalse(CoupleCode.isValid("   "))
+        assertFalse(CoupleCode.isValid("4287"))
+        assertFalse(CoupleCode.isValid("4287131"))
+        assertFalse(CoupleCode.isValid("abcdef"))
+        assertFalse(CoupleCode.isValid("12.456"))
+    }
+
+    @Test
+    fun `full six-digit codes are valid regardless of separators`() {
+        assertTrue(CoupleCode.isValid("428713"))
+        assertTrue(CoupleCode.isValid(" 428 713 "))
+        assertTrue(CoupleCode.isValid("428-713"))
+        assertTrue(CoupleCode.isValid("000042"))
+        assertTrue(CoupleCode.isValid(CoupleCode.generate(Random(7))))
+    }
 }

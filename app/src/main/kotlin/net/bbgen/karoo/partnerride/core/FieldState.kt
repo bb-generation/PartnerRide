@@ -36,6 +36,9 @@ object FieldState {
         if (state.missingPermissions.isNotEmpty()) return grayLabel("NO PERM")
         if (!state.serviceRunning) return FieldDisplay("OFF", FieldBackground.GRAY, 1f)
         if (!state.bluetoothReady) return grayLabel("NO BT")
+        // Nothing is broadcast or matched without a full 6-digit code, so say so rather than
+        // sitting on NO SIGNAL forever.
+        if (!state.coupleCodeValid) return grayLabel("NO CODE")
         val ownFixAge = state.lastOwnFixElapsedMs?.let { nowElapsedMs - it }
         if (ownFixAge == null || ownFixAge > OWN_FIX_STALE_MS) return grayLabel("NO GPS")
 

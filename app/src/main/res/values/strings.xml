@@ -13,6 +13,7 @@
     <string name="couple_code_hint">6-digit code, e.g. 428713</string>
     <string name="couple_code_help">Both Karoos must use the exact same 6-digit code. Generate it on one device and type it on the other.</string>
     <string name="generate_code">Generate</string>
+    <string name="couple_code_incomplete">Needs all 6 digits — nothing is broadcast until then.</string>
     <string name="setting_alert">Gap alert</string>
     <string name="setting_alert_threshold">Alert threshold (m)</string>
 
@@ -32,6 +33,7 @@
     <string name="status_scan_failed">Bluetooth scan failed</string>
     <string name="status_service_start_blocked">Link service blocked in background — open PartnerRide once</string>
     <string name="status_link_start_failed">Link could not start</string>
+    <string name="status_no_couple_code">Enter the 6-digit couple code — the link is off until you do</string>
     <string name="grant_permissions">Grant permissions</string>
 
     <string name="alert_title">Partner gap!</string>

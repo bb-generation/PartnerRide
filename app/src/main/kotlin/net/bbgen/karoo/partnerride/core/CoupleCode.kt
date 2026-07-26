@@ -15,6 +15,18 @@ object CoupleCode {
     /** Lowercase, separators removed: " 123 456 " -> "123456". */
     fun normalize(raw: String): String = raw.lowercase().replace(SEPARATORS, "")
 
+    /**
+     * True only for exactly [CODE_LENGTH] digits after normalization.
+     *
+     * Nothing about [tag] rejects a short or empty code — SHA-256("") is a perfectly good tag —
+     * so without this check two devices that were never configured broadcast and match on the
+     * same one and happily pair with a stranger.
+     */
+    fun isValid(code: String): Boolean {
+        val normalized = normalize(code)
+        return normalized.length == CODE_LENGTH && normalized.all { it.isDigit() }
+    }
+
     /** First 4 bytes of SHA-256 of the normalized code (UTF-8). */
     fun tag(code: String): ByteArray = MessageDigest.getInstance("SHA-256")
         .digest(normalize(code).toByteArray(Charsets.UTF_8))

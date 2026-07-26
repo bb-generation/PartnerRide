@@ -32,6 +32,25 @@ class FieldStateTest {
     }
 
     @Test
+    fun `incomplete couple code shows NO CODE on gray`() {
+        val display = FieldState.build(healthy().copy(coupleCodeValid = false), now)
+        assertEquals("NO CODE", display.text)
+        assertEquals(FieldBackground.GRAY, display.background)
+    }
+
+    @Test
+    fun `no Bluetooth outranks a missing couple code`() {
+        val state = healthy().copy(bluetoothReady = false, coupleCodeValid = false)
+        assertEquals("NO BT", FieldState.build(state, now).text)
+    }
+
+    @Test
+    fun `missing couple code outranks a stale own fix`() {
+        val state = healthy(ownFixAgeMs = 30_000L).copy(coupleCodeValid = false)
+        assertEquals("NO CODE", FieldState.build(state, now).text)
+    }
+
+    @Test
     fun `missing permissions win over everything, even a stopped service`() {
         val state = PartnerRideState(serviceRunning = false, missingPermissions = listOf("x"))
         val display = FieldState.build(state, now)

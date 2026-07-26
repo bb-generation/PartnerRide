@@ -147,6 +147,7 @@ adb shell pm grant net.bbgen.karoo.partnerride android.permission.BLUETOOTH_ADVE
 | `NO SIGNAL` on gray | Running and broadcasting, but no partner heard yet |
 | `NO GPS` on gray | No own GPS fix (yet, or for >10 s) — nothing is being broadcast |
 | `NO BT` on gray | Bluetooth is off |
+| `NO CODE` on gray | No couple code entered yet (or fewer than 6 digits) — nothing is broadcast |
 | `NO PERM` on gray | Location/Bluetooth permissions missing — open the app to grant them |
 | `OFF` on gray | PartnerRide is disabled (or its service is not running) |
 
