@@ -111,6 +111,13 @@ class PartnerLinkService : Service() {
      */
     private var lastOwnFixElapsedMs: Long? = null
 
+    /**
+     * Why this service is stopping, kept on the status line after it goes away. Without it
+     * [GapRepository.serviceStopped] clears statusMessage in onDestroy and the settings screen
+     * never gets to show the reason the service refused to start.
+     */
+    private var stopReason: String? = null
+
     /** Start times of recent BLE scans; Android blocks apps starting >5 scans per 30 s. */
     private val recentScanStarts = ArrayDeque<Long>()
 
@@ -146,15 +153,19 @@ class PartnerLinkService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        startInForeground()
 
         val missing = missingPermissions(this)
+        // startForegroundService() demands a startForeground() call within ~5 s even on this
+        // failure path, so always go foreground first — but without the location/connectedDevice
+        // service types when their permissions are missing: Android 14+ throws SecurityException
+        // for a typed foreground service the app has no permission for, which would crash us on
+        // exactly the path that exists to report the problem.
+        startInForeground(withServiceTypes = missing.isEmpty())
+
         if (missing.isNotEmpty()) {
+            stopReason = getString(R.string.status_permissions_missing)
             GapRepository.update {
-                it.copy(
-                    missingPermissions = missing,
-                    statusMessage = getString(R.string.status_permissions_missing),
-                )
+                it.copy(missingPermissions = missing, statusMessage = stopReason)
             }
             stopSelf()
             return
@@ -233,11 +244,11 @@ class PartnerLinkService : Service() {
             karooSystem.disconnect()
         }
         wakeLock?.let { if (it.isHeld) it.release() }
-        GapRepository.serviceStopped()
+        GapRepository.serviceStopped(stopReason)
         super.onDestroy()
     }
 
-    private fun startInForeground() {
+    private fun startInForeground(withServiceTypes: Boolean) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(
             NotificationChannel(
@@ -259,12 +270,13 @@ class PartnerLinkService : Service() {
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .build()
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val type = if (withServiceTypes && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
         } else {
             0
         }
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type)
+        runCatching { ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type) }
+            .onFailure { Log.w(TAG, "startForeground failed", it) }
     }
 
     // ------------------------------------------------------------------ settings
