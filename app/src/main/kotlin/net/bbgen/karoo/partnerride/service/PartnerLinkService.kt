@@ -87,9 +87,20 @@ class PartnerLinkService : Service() {
     @Volatile
     private var coupleTag = CoupleCode.tag("")
 
+    // BLE link state. Every mutation is confined to the "partnerride-link" handler thread (BLE
+    // callbacks and onDestroy post onto it rather than writing directly); @Volatile is the safety
+    // net so a future direct write from the binder/main thread degrades to a visible race rather
+    // than a silently stale read.
+    @Volatile
     private var advertisingSet: AdvertisingSet? = null
+
+    @Volatile
     private var advertisingStartPending = false
+
+    @Volatile
     private var scanning = false
+
+    /** Link-thread confined: only ever touched from [maybeAlert] via [handleScanResult]. */
     private var alertArmed = true
 
     /** Start times of recent BLE scans; Android blocks apps starting >5 scans per 30 s. */
@@ -196,8 +207,14 @@ class PartnerLinkService : Service() {
         scope.cancel()
         if (this::handler.isInitialized) {
             handler.removeCallbacksAndMessages(null)
-            stopScan()
-            stopAdvertising()
+            // Tear the radios down *on the link thread*: doing it from the caller's thread could
+            // read a stale `scanning`/`advertisingSet`, skip the stop, and leave a scan or an
+            // advertising set running against a destroyed service until the process dies.
+            // quitSafely() below still delivers this already-queued message before quitting.
+            handler.post {
+                stopScan()
+                stopAdvertising()
+            }
             (getSystemService(Context.LOCATION_SERVICE) as LocationManager)
                 .removeUpdates(locationListener)
             runCatching { unregisterReceiver(btStateReceiver) }
@@ -304,22 +321,27 @@ class PartnerLinkService : Service() {
 
     // ------------------------------------------------------------------ advertising
 
+    // Callbacks arrive on the main/binder thread; hop to the link thread before touching
+    // advertising state so it stays serialized with updateAdvertisement().
     private val advertisingCallback = object : AdvertisingSetCallback() {
         override fun onAdvertisingSetStarted(set: AdvertisingSet?, txPower: Int, status: Int) {
-            advertisingStartPending = false
-            if (status == ADVERTISE_SUCCESS && set != null) {
-                advertisingSet = set
-                GapRepository.update { it.copy(advertising = true) }
-            } else {
-                Log.w(TAG, "Advertising failed to start: $status")
-                GapRepository.update {
+            val started = status == ADVERTISE_SUCCESS && set != null
+            if (!started) Log.w(TAG, "Advertising failed to start: $status")
+            handler.post {
+                advertisingStartPending = false
+                advertisingSet = if (started) set else null
+            }
+            GapRepository.update {
+                if (started) {
+                    it.copy(advertising = true)
+                } else {
                     it.copy(advertising = false, statusMessage = getString(R.string.status_advertise_failed))
                 }
             }
         }
 
         override fun onAdvertisingSetStopped(set: AdvertisingSet?) {
-            advertisingSet = null
+            handler.post { advertisingSet = null }
             GapRepository.update { it.copy(advertising = false) }
         }
     }
