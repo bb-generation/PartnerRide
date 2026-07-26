@@ -199,9 +199,12 @@ reliable heading exists (standing still), the last stable sign is kept.
 
 Implemented in `core/FieldState` (pure Kotlin, JVM-tested); the view layer only maps
 `FieldBackground` values to colors. Ages are measured on the monotonic clock
-(`SystemClock.elapsedRealtime`), evaluated on every state change and once per second. When
-several things are wrong, the **first matching row from the top wins**, so the field always
-names the first problem to fix:
+(`SystemClock.elapsedRealtime`), evaluated on every state change and once per second. The
+*rendered* rate is lower: karoo-ext drops any `updateView` issued within ~900 ms of the
+previous one, so the view flow is throttled to 1 Hz (conflating, so the value that survives
+each window is the newest) and deduplicated. A state change can therefore be deferred to the
+next tick — up to ~1 s — but is never dropped. When several things are wrong, the **first
+matching row from the top wins**, so the field always names the first problem to fix:
 
 | Condition | Display | Background |
 |---|---|---|

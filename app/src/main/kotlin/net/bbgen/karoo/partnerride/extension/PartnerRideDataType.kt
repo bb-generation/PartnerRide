@@ -26,8 +26,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.bbgen.karoo.partnerride.core.FieldBackground
 import net.bbgen.karoo.partnerride.core.FieldDisplay
@@ -64,10 +66,21 @@ class PartnerRideDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) 
             // start triggers (with boot receiver and app open) so no single bind order is
             // load-bearing.
             ServiceController.sync(context.applicationContext, context.streamSettings().first())
-            // Re-render on every state change and once per second (staleness ages tick).
+            // Re-render on every state change and once per second (staleness ages tick), but
+            // pace it ourselves: karoo-ext drops any updateView within ~900 ms of the previous
+            // one, so emitting faster meant a fresh packet landing just after a tick was
+            // silently discarded and the field kept the old value — while still paying for a
+            // full Glance composition and a RemoteViews parcel on every dropped emission.
+            //
+            // throttle() conflates, so the value that survives the window is always the latest,
+            // and because our emissions are >= 1 s apart none of them can now be dropped. Only
+            // then is distinctUntilChanged safe: a filtered value is one the field is already
+            // showing, not one that got thrown away.
             combine(GapRepository.state, secondsTicker()) { state, _ -> state }
-                .collect { state ->
-                    val display = FieldState.build(state, SystemClock.elapsedRealtime())
+                .throttle(VIEW_UPDATE_INTERVAL_MS)
+                .map { FieldState.build(it, SystemClock.elapsedRealtime()) }
+                .distinctUntilChanged()
+                .collect { display ->
                     val result = glance.compose(context, DpSize.Unspecified) { GapField(display, config) }
                     emitter.updateView(result.remoteViews)
                 }
@@ -87,6 +100,9 @@ class PartnerRideDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) 
 
     companion object {
         const val TYPE_ID = "partner-gap"
+
+        /** karoo-ext drops any updateView within ~900 ms of the previous one; stay outside that. */
+        private const val VIEW_UPDATE_INTERVAL_MS = 1_000L
     }
 }
 
