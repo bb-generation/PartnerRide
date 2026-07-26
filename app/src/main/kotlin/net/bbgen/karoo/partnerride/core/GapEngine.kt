@@ -24,8 +24,11 @@ class GapEngine(
     // spaces accepted packets several seconds apart, and averaging N of those multiplies the
     // display lag by N. Left as a constructor param (not deleted) so it's a one-line revert.
     private val smoothingWindow: Int = 1,
-    /** No accepted packet for this long -> forget replay state so recovery is never blocked. */
-    private val replayResetMs: Long = 60_000L,
+    /**
+     * No accepted packet for this long -> forget replay state so recovery is never blocked.
+     * Must stay below the replay guard's half-window — see [DEFAULT_REPLAY_RESET_MS].
+     */
+    private val replayResetMs: Long = DEFAULT_REPLAY_RESET_MS,
     /** Minimum distance between two own fixes for a heading to count as reliable. */
     private val headingMinDistanceM: Double = 2.0,
     /** Never dead-reckon a position further than this; older fixes use the matching fallback. */
@@ -35,6 +38,16 @@ class GapEngine(
     private val recentGaps = ArrayDeque<Double>()
     private var lastSignAhead = true
     private var lastAcceptElapsedMs = Long.MIN_VALUE
+
+    init {
+        // The reset must fire *before* the guard goes blind, never after: past the half-window
+        // the mod-65536 comparison can no longer tell "newer" from "older" and every packet is
+        // rejected until the reset finally lands.
+        require(replayResetMs < REPLAY_AMBIGUITY_MS) {
+            "replayResetMs ($replayResetMs) must stay below the replay guard's " +
+                "$REPLAY_AMBIGUITY_MS ms half-window"
+        }
+    }
 
     fun onOwnFix(fix: GpsFix) {
         fixBuffer.add(fix)
@@ -137,5 +150,23 @@ class GapEngine(
             }
         }
         return null
+    }
+
+    companion object {
+        /**
+         * Beyond this, a partner [PartnerPacket.timeMod] is genuinely ambiguous: the packet only
+         * carries the low 16 bits of the GPS fix time ([PacketCodec.TIME_MOD] = 65.536 s), so
+         * "40 s newer" and "25.5 s older" are the same value and [ReplayGuard] resolves both as
+         * a replay.
+         */
+        const val REPLAY_AMBIGUITY_MS = PacketCodec.TIME_MOD / 2
+
+        /**
+         * Deliberately below [REPLAY_AMBIGUITY_MS]. A partner out of range for longer than the
+         * half-window comes back with a timeMod the guard reads as *older*, and — because the
+         * reset clock only advances on an accepted packet — every packet is then dropped until
+         * the reset lands. Resetting first closes that window at every dropout length.
+         */
+        const val DEFAULT_REPLAY_RESET_MS = 30_000L
     }
 }

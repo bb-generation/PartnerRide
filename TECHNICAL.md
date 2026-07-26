@@ -16,7 +16,7 @@ connection, and no acknowledgement — each device is simultaneously:
 
 Because the link is stateless, "reconnection" does not exist as a concept: when the partner
 comes back into radio range, their packets simply start being accepted again. The only receiver
-state (the replay guard, §5) auto-resets after 60 s of silence so it can never block recovery.
+state (the replay guard, §5) auto-resets after 30 s of silence so it can never block recovery.
 
 ```
 ┌─ Karoo A ────────────────────┐          ┌─ Karoo B ────────────────────┐
@@ -117,8 +117,15 @@ fullTime = reference + diff
 **Replay guard.** The last accepted `timeMod` is tracked; a packet is accepted only if it is
 0 < (new − last) mod 65536 < 32768, i.e. strictly newer within the forward half-window. This
 rejects duplicates (the same advertisement is received many times at a ~250 ms interval) and
-replays. After 60 s without an accepted packet the guard resets, because mod-65536 ordering is
+replays. After 30 s without an accepted packet the guard resets, because mod-65536 ordering is
 meaningless across longer gaps — this is what makes out-of-range recovery state-free.
+
+The reset interval must stay **below** the guard's own 32.768 s half-window, and `GapEngine`
+enforces that with a `require`. A partner out of range for longer than the half-window returns
+with a `timeMod` the guard reads as *older* (40 s newer and 25.5 s older are the same 16-bit
+value), so it is rejected — and since the reset clock only advances on an *accepted* packet, a
+reset slower than the half-window leaves a dead band in which the partner is back, transmitting,
+and ignored. Resetting first closes that band at every dropout length.
 
 ## 6. Gap computation
 
@@ -267,7 +274,7 @@ Consequences:
 | Timestamp modulus | 65 536 ms | `PacketCodec.TIME_MOD` |
 | Own-fix ring buffer window | 5 s | `FixBuffer.DEFAULT_WINDOW_MS` |
 | Extrapolation cap | 3 s | `GapEngine.maxExtrapolationMs` |
-| Replay-guard reset | 60 s | `GapEngine.replayResetMs` |
+| Replay-guard reset | 30 s | `GapEngine.DEFAULT_REPLAY_RESET_MS` (must be < 32.768 s) |
 | Smoothing window | 1 value (disabled; was 3) | `GapEngine.smoothingWindow` |
 | Scan report delay (batching) | 2 s, if supported | `PartnerLinkService.SCAN_REPORT_DELAY_MS` |
 | Heading reliability distance | 2 m | `GapEngine.headingMinDistanceM` |

@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class GapEngineTest {
@@ -258,7 +259,7 @@ class GapEngineTest {
 
     @Test
     fun `partner returning after a long absence is accepted again`() {
-        val engine = GapEngine(replayResetMs = 60_000L)
+        val engine = GapEngine()
         rideNorth(engine, 4)
         val own = engine.latestOwnFix()!!
 
@@ -271,5 +272,35 @@ class GapEngineTest {
         assertNotNull(
             engine.onPartnerPacket(PartnerPacket(staleLooking, own.latDeg + latStep, 15.0), 601_000L),
         )
+    }
+
+    @Test
+    fun `partner returning mid-window is not stuck behind the replay guard`() {
+        val engine = GapEngine()
+        rideNorth(engine, 4)
+        val own = engine.latestOwnFix()!!
+
+        assertNotNull(
+            engine.onPartnerPacket(PartnerPacket(timeMod(own.timeMs), own.latDeg + latStep, 15.0), 1_000L),
+        )
+        // 40 s out of range: the partner's GPS clock advanced 40 s, which is past the guard's
+        // 32.768 s half-window, so mod-65536 makes the packet look 25.5 s *old*. Recovery must
+        // be immediate, not deferred to the replay reset.
+        val returning = timeMod(own.timeMs + 40_000L)
+        assertNotNull(
+            engine.onPartnerPacket(PartnerPacket(returning, own.latDeg + latStep, 15.0), 41_000L),
+        )
+    }
+
+    @Test
+    fun `replay reset window must stay below the guard's ambiguity limit`() {
+        // Guards the B1 regression: a reset slower than the half-window reopens the dead band.
+        assertTrue(GapEngine.DEFAULT_REPLAY_RESET_MS < GapEngine.REPLAY_AMBIGUITY_MS)
+        try {
+            GapEngine(replayResetMs = 60_000L)
+            fail("expected IllegalArgumentException for a reset past the ambiguity limit")
+        } catch (expected: IllegalArgumentException) {
+            // expected
+        }
     }
 }
