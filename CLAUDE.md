@@ -1,15 +1,13 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## What this is
 
 PartnerRide — a Hammerhead Karoo (2/3) extension for two riders. Each device broadcasts its GPS
 position over connectionless BLE advertising (no pairing/GATT) and shows the live signed
 straight-line distance to the partner as a custom ride data field. One identical APK runs on both
 devices. Built with the karoo-ext SDK; use the **hammerskill** skill for Karoo API questions.
-`TECHNICAL.md` documents the wire format, time model, and gap algorithm — keep it in sync with
-protocol or algorithm changes.
+`TECHNICAL.md` is the reference for the wire format, time model, and gap algorithm — keep it in
+sync with protocol or algorithm changes.
 
 ## Build and test
 
@@ -18,12 +16,12 @@ JDK 17+ is required but the system default is Java 11 — use Android Studio's J
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 .\gradlew.bat test              # JVM unit tests (all core logic is covered here)
-.\gradlew.bat assembleRelease   # release-signed if configured, else falls back to debug-signing
 .\gradlew.bat lint              # Android lint
+.\gradlew.bat assembleRelease
 ```
 
-Run a single test class — note this needs the concrete `testDebugUnitTest` task, since `--tests`
-is not a valid option on the aggregate `test` task ("Unknown command-line option '--tests'"):
+Run a single test class — this needs the concrete `testDebugUnitTest` task, since `--tests` is
+not a valid option on the aggregate `test` task ("Unknown command-line option '--tests'"):
 
 ```powershell
 .\gradlew.bat testDebugUnitTest --tests "net.bbgen.karoo.partnerride.core.GapEngineTest"
@@ -31,62 +29,54 @@ is not a valid option on the aggregate `test` task ("Unknown command-line option
 
 The `io.hammerhead:karoo-ext` dependency comes from GitHub Packages and needs auth even though
 it's public: `gpr.user`/`gpr.key` (PAT with `read:packages`) in the gitignored `local.properties`
-(read by custom logic in `settings.gradle.kts`, which falls back to gradle properties and
-`USERNAME`/`TOKEN` env vars for CI).
+(`settings.gradle.kts` has the gradle-property and env-var fallbacks CI uses).
 
-**Release signing:** the release build must always be signed with the same key, or a device that
-already has a real-key build installed will refuse to install the next one (`INSTALL_FAILED_
-UPDATE_INCOMPATIBLE`) — there'd be no way to update without uninstalling and losing the couple
-code and other `PartnerRideSettings`. The signing key is resolved in `app/build.gradle.kts` from
-(in order): `local.properties` (`signing.storeFile`/`storePassword`/`keyAlias`/`keyPassword`, for
-local release builds), env vars `KEYSTORE_FILE` + `KEY_ALIAS`/`KEY_PASSWORD`/`KEYSTORE_PASSWORD`
-(a plain keystore path — the convention used by `build-signed-release.bat`, see below), then env
-vars `KEYSTORE_BASE64` + `KEY_ALIAS`/`KEY_PASSWORD`/`KEYSTORE_PASSWORD` (the CI convention: the
-keystore arrives as a base64 GitHub Actions repo secret, consumed by
-`.github/workflows/release.yml`). If none of this is set, it silently falls back to debug-signing
-so a bare `assembleRelease` still works — but an APK built that way must never reach a device that
-already has a real-key build, or the same uninstall problem hits. The keystore itself is kept
-outside the repo (not just gitignored — never generated into it), with alias `partnerride`;
-regenerating it would force every existing install to be uninstalled and re-paired. Its exact
-filename/path is only recorded in the gitignored `build-signed-release.bat` — don't assume the
-name matches an older commit's version of this file, it's been renamed before after a keystore
-mixup.
+Deploy over adb: `adb install -r app\build\outputs\apk\release\app-release.apk`, then **open the
+app once on the device** or the extension won't register. There is no way to exercise the BLE
+link without two physical devices; everything testable without hardware lives in `core/`.
 
-For testing real-key-signed builds on device without touching `local.properties`, run
-`build-signed-release.bat` (gitignored, lives at the repo root): it sets
-`KEYSTORE_FILE`/`KEY_ALIAS`/`KEY_PASSWORD`/`KEYSTORE_PASSWORD` directly and calls
-`gradlew.bat assembleRelease`.
+## Release signing
 
-Deploy to a Karoo over adb: `adb install -r app\build\outputs\apk\release\app-release.apk`, then
-**open the app once on the device** or the extension won't register. There is no way to exercise
-the BLE link without two physical devices; everything testable without hardware lives in `core/`.
+`app/build.gradle.kts` documents where the key is resolved from. What isn't in the code:
 
-**Cutting a release:** bump `versionCode`/`versionName` in `app/build.gradle.kts` (every commit
-that changes user-visible or wire-format behavior has done this) and publishing a GitHub Release
-triggers `.github/workflows/release.yml`, which runs the unit tests, builds `assembleRelease`
-(real-key signed, via the `KEYSTORE_BASE64`/`KEY_ALIAS`/`KEY_PASSWORD`/`KEYSTORE_PASSWORD` repo
-secrets described above), and attaches the APK to that release, plus a generated `manifest.json`
-and `icon.png` at stable `.../releases/latest/download/...` URLs. `AndroidManifest.xml`'s
-`MANIFEST_URL` meta-data points there so Karoo OS can show an update-available signal in
-Settings → Extensions on already-installed copies (independent of any curated-library listing).
-Both devices must run the same version (see packet versioning below), so there's no
-partial-rollout path — a release is an all-or-nothing swap for both riders.
+- The release build must **always** use the same key. A device holding a real-key build refuses
+  to install one signed differently (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`), and the only way out
+  is an uninstall that loses the couple code and the rest of `PartnerRideSettings`. Regenerating
+  the keystore would force that on every existing install.
+- The keystore lives outside the repo — not just gitignored, never generated into it. Alias
+  `partnerride`. Its filename is recorded only in the gitignored `build-signed-release.bat`;
+  don't assume it matches an older commit's version of this file, it has been renamed before
+  after a keystore mixup.
+- `build-signed-release.bat` (repo root, gitignored) builds a real-key-signed APK on device
+  without touching `local.properties`.
+- Locally, an unconfigured `assembleRelease` silently debug-signs so a zero-setup build still
+  works — such an APK must never reach a device that already has a real-key build. Under CI that
+  same fallback is a hard failure instead (`verifyReleaseSigning`).
+
+## Cutting a release
+
+Bump `versionCode`/`versionName`, tag `vX.Y.Z`, publish a GitHub Release. That triggers
+`.github/workflows/release.yml`, which attaches the APK plus a generated `manifest.json` and
+`icon.png` at stable `.../releases/latest/download/...` URLs — `AndroidManifest.xml`'s
+`MANIFEST_URL` points there so Karoo OS shows an update signal in Settings → Extensions.
+
+- The workflow fails if the tag and `versionName` disagree, so bump before tagging.
+- Both devices must run the same version, so there is no partial-rollout path — a release is an
+  all-or-nothing swap for both riders.
+- `.github/workflows/ci.yml` runs tests, lint and a debug build on every push and PR.
 
 ## Architecture
 
-Two cooperating services in one process, bridged by a `StateFlow`:
+Two cooperating services in one process, bridged by a `StateFlow` in `core/GapRepository`:
 
 - `service/PartnerLinkService` — foreground service (wakelock), owns all I/O: BLE advertising
-  (AdvertisingSet API, payload updated in place per GPS fix), BLE scanning, GPS via
-  `LocationManager`, and the gap alert. Runs whenever the extension is enabled in settings,
-  independent of ride recording. Writes results into `core/GapRepository`.
+  (payload updated in place per GPS fix), BLE scanning, GPS via `LocationManager`, and the gap
+  alert. Runs whenever the extension is enabled, independent of ride recording.
 - `extension/PartnerRideExtension` — the karoo-ext service Karoo OS binds to; exposes
-  `PartnerRideDataType` (Glance→RemoteViews, reads `GapRepository`) and keeps the link service in
-  sync with the enable setting (covers start-after-boot).
-- `core/` — pure Kotlin with no Android dependencies, fully unit-tested on the JVM: packet
-  codec, couple code, timestamp reconstruction + replay guard, fix ring buffer, gap engine,
-  zone hysteresis. Monotonic "now" values are passed in as parameters so the logic stays
-  testable; only the service layer touches `SystemClock`.
+  `PartnerRideDataType` (Glance→RemoteViews).
+- `core/` — pure Kotlin, no Android dependencies, fully unit-tested on the JVM. Monotonic "now"
+  values are passed in as parameters so the logic stays testable; only the service layer touches
+  `SystemClock`.
 
 `ServiceController.sync()` is the only place that starts/stops the link service. It is called
 redundantly from every path that can want the link up — the extension service, a
@@ -100,17 +90,16 @@ shown). Don't remove one of these triggers because it "looks duplicated".
   — device clocks drift between the two riders and would break the timestamp matching in
   `GapEngine`. This is why GPS comes from `LocationManager`, not karoo-ext's `OnLocationChanged`
   (which carries no GPS timestamp).
-- Fixes from different times are never compared directly: `GapEngine` dead-reckons both
-  positions to a common evaluation time (flat-earth extrapolation along each fix's speed/heading,
-  capped at 3 s) and falls back to matching the partner fix against the *own fix closest in GPS
-  time* (ring buffer) when the partner's speed/heading bytes are the `0xFF` sentinel or the cap
-  is exceeded.
-- The packet format is versioned (`PacketCodec.VERSION`); unknown versions and wrong sizes are
-  silently dropped. The 19-byte layout (incl. speed/heading bytes with `0xFF` sentinels) is
-  fixed for version 1; an encrypted format would be version 2. Both devices must run the same
-  app version.
+- Fixes from different times are never compared directly: `GapEngine` dead-reckons both positions
+  to a common evaluation time (capped at 3 s) and otherwise falls back to matching the partner
+  fix against the own fix closest in GPS time — dropping the packet if nothing is close enough.
+- The packet format is versioned (`PacketCodec.VERSION`); anything failing validation is silently
+  dropped. The 19-byte layout is fixed for version 1; an encrypted format would be version 2.
+  Both devices must run the same app version.
 - BLE scans are stopped/restarted every ~20 min (Android demotes scans >30 min old), and scan
   starts are rate-limited in `startScanIfAllowed` (Android blocks >5 starts per 30 s).
+- All BLE state mutation is confined to the `partnerride-link` handler thread — BLE callbacks and
+  `onDestroy` post onto it rather than writing directly. Nothing enforces this at compile time.
 - Scan mode is hardcoded to `SCAN_MODE_BALANCED` (duty-cycled) — there is deliberately no
   user-facing battery/latency setting. A Performance/Battery-Saver toggle was tried and then
   removed (see git history) because riders have no way to judge that tradeoff; don't reintroduce
@@ -120,4 +109,5 @@ shown). Don't remove one of these triggers because it "looks duplicated".
 - Extension id `partnerride` (no dots) must match in `PartnerRideExtension`, `extension_info.xml`,
   and each `DataTypeImpl`'s typeId must have a `<DataType>` entry there.
 - `PartnerRideSettings` is persisted as JSON with `ignoreUnknownKeys` — add fields with defaults
-  only.
+  only. Change it through `updateSettings {}` (read-modify-write inside the DataStore
+  transaction), never by saving a separately-collected snapshot.
