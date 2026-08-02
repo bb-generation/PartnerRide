@@ -13,9 +13,8 @@ Developer-level details (BLE transport, payload byte layout, time model, gap alg
 ## How it works
 
 ![Two riders, each with a Karoo. Both get their position from GPS and send it straight to the other
-bike over Bluetooth — no internet, no phone. Because the position you receive is a moment old, it
-is moved forward to where your partner is now, and the distance between you appears on your ride
-screen](art/partnerride-overview.svg)
+bike over Bluetooth — no internet, no phone — and the distance between the two of you appears on
+your ride screen](art/partnerride-overview.svg)
 
 - Both devices simultaneously advertise (legacy BLE, manufacturer data, ~250 ms interval, max TX
   power) and scan (duty-cycled to save battery, with results batched so updates land roughly

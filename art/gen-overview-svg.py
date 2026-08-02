@@ -2,10 +2,10 @@
 """Generate art/partnerride-overview.svg — the plain-language version of the diagram.
 
 This is the picture a new reader meets at the top of the README, so it answers
-one question only: what does the extension do? Four beats — GPS position,
-Bluetooth to the other bike, the received position moved forward so both are
-from the same moment, the distance on the ride screen. No protocol, no numbers
-beyond the one on the field, no legend.
+one question only: what does the extension do? Three beats — GPS position,
+Bluetooth to the other bike, the distance on the ride screen. No protocol, no
+legend, no dead reckoning; the only number is the one on the field. The
+walkthrough is where the mechanics belong.
 
 art/partnerride-workflow.svg is the detailed companion; shared palette, glyphs
 and timing helpers live in art/svgkit.py.
@@ -17,7 +17,7 @@ from svgkit import (A_COL, B_COL, BG, BLE, FAINT, MUTED, PANEL_EDGE, TEXT, YELLO
                     Timeline, bike, bt_rune, satellite, txt)
 
 W, H = 900, 400
-SCORE = 26.0                # four beats of ~6 s
+SCORE = 20.0                # three beats of ~6 s
 PLAY_RATE = 1.0
 _T = Timeline(SCORE, PLAY_RATE)
 fade, motion, draw_on = _T.fade, _T.motion, _T.draw_on
@@ -25,13 +25,13 @@ fade, motion, draw_on = _T.fade, _T.motion, _T.draw_on
 # ---------------------------------------------------------------- geometry
 LANE_Y, LANE_H = 140, 78
 HUB_Y = 196
-YOU, RX, PARTNER = 210, 515, 650   # you · partner's position as received · where they are now
+YOU, PARTNER = 210, 650
 SAT = (430, 40)
 CAPTION_Y = 262
 
 # ---------------------------------------------------------------- timeline
-B1, B2, B3, B4 = (0.8, 6.6), (7.0, 12.8), (13.2, 19.0), (19.4, 25.4)
-HOLD = 25.0
+B1, B2, B3 = (0.8, 6.6), (7.0, 13.0), (13.4, 19.4)
+HOLD = 19.0
 
 out = []
 
@@ -52,15 +52,12 @@ add(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" 
     f'role="img" aria-labelledby="ttl dsc">')
 add('<title id="ttl">What PartnerRide does</title>')
 add('<desc id="dsc">Two riders, each with a Karoo. Both get their position from GPS and send it '
-    'straight to the other bike over Bluetooth — no internet, no phone. Because the position you '
-    'receive is a moment old, it is moved forward to where your partner is now, and the distance '
-    'between you appears on your ride screen.</desc>')
+    'straight to the other bike over Bluetooth — no internet, no phone — and the distance between '
+    'the two of you appears on your ride screen.</desc>')
 
 add('<defs>')
 add(f'<marker id="aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" '
     f'orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="{TEXT}"/></marker>')
-add(f'<marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" '
-    f'orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="{B_COL}"/></marker>')
 add(f'<marker id="ap" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" '
     f'orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="{BLE}"/></marker>')
 add('<linearGradient id="lane" x1="0" y1="0" x2="0" y2="1">'
@@ -103,32 +100,24 @@ add(f'<g>{fade(B2[0], B2[1])}'
 add(f'<g>{fade(B2[0]+0.2, B2[1])}'
     f'<circle cx="{(YOU+PARTNER)/2}" cy="{LANE_Y-46}" r="23" fill="#171531" stroke="{BLE}"/>'
     f'{bt_rune((YOU+PARTNER)/2, LANE_Y-46, 0.8, BLE, 3.2)}</g>')
-for t0, rev in ((7.8, False), (9.0, True), (10.2, False)):
+for t0, rev in ((7.8, False), (9.2, True), (10.6, False)):
     path = arc if not rev else (f"M{PARTNER-40},{LANE_Y-16} "
                                 f"Q{(YOU+PARTNER)/2},{ARC_TOP} {YOU+40},{LANE_Y-16}")
     add(f'<g>{fade(t0, t0 + 2.2, 0.2, 0.3)}<circle r="6" fill="{BLE}">'
         f'{motion(path, t0, t0 + 2.0)}</circle></g>')
 add(beat(*B2, "…and sends it straight to the other bike over Bluetooth"))
 
-# ================================================================= 3 · same moment
-add(f'<g>{fade(13.4, HOLD)}{bike(RX, HUB_Y, B_COL, ghost=True)}'
-    f'{txt(RX, HUB_Y + 42, "just received", 12, MUTED, anchor="middle")}</g>')
-add(f'<g>{fade(15.4, HOLD)}'
-    f'<line x1="{RX+42}" y1="{HUB_Y+14}" x2="{PARTNER-42}" y2="{HUB_Y+14}" stroke="{B_COL}" '
-    f'stroke-width="2.4" stroke-dasharray="5 4" marker-end="url(#ab)"/></g>')
-add(beat(13.2, 19.0, "The position you receive is a moment old, so it is moved forward"))
-
-# ================================================================= 4 · the gap
+# ================================================================= 3 · the gap
 LINE_Y = 112
-add(f'<g>{fade(19.6, HOLD)}'
+add(f'<g>{fade(13.8, HOLD)}'
     f'<line x1="{YOU}" y1="{LINE_Y-6}" x2="{YOU}" y2="{LANE_Y-4}" stroke="{TEXT}" stroke-width="1.4" opacity="0.55"/>'
     f'<line x1="{PARTNER}" y1="{LINE_Y-6}" x2="{PARTNER}" y2="{LANE_Y-4}" stroke="{TEXT}" stroke-width="1.4" opacity="0.55"/>'
     f'<line x1="{YOU}" y1="{LINE_Y}" x2="{PARTNER}" y2="{LINE_Y}" stroke="{TEXT}" stroke-width="2" '
     f'marker-start="url(#aw)" marker-end="url(#aw)" stroke-dasharray="{PARTNER-YOU}" '
-    f'stroke-dashoffset="0">{draw_on(PARTNER-YOU, 19.6, 20.8)}</line></g>')
-add(f'<g>{fade(20.8, HOLD)}'
+    f'stroke-dashoffset="0">{draw_on(PARTNER-YOU, 13.8, 15.0)}</line></g>')
+add(f'<g>{fade(15.0, HOLD)}'
     f'{txt((YOU+PARTNER)/2, LINE_Y-10, "28 m", 14, TEXT, anchor="middle", weight="600")}</g>')
-add(beat(19.4, HOLD, "…and the distance between you shows on your ride screen"))
+add(beat(*B3, "…and the distance between you shows on your ride screen"))
 
 # the ride-screen field: an empty slot from the start, filled in on the last beat.
 # The filled version is drawn last and is opaque, so a renderer without SMIL shows it.
@@ -137,7 +126,7 @@ add(f'<rect x="{FX}" y="{FY}" width="{FW}" height="{FH}" rx="10" fill="#161b23" 
 add(txt(W/2, FY + 26, "PARTNER GAP", 10, FAINT, anchor="middle", mono=True))
 add(txt(W/2, FY + 52, "—", 22, FAINT, anchor="middle", weight="700"))
 add(txt(W/2, FY + 86, "on your Karoo ride screen", 11.5, MUTED, anchor="middle"))
-add(f'<g>{fade(21.0, HOLD)}'
+add(f'<g>{fade(15.6, HOLD)}'
     f'<rect x="{FX}" y="{FY}" width="{FW}" height="{FH}" rx="10" fill="{YELLOW}"/>'
     f'{txt(W/2, FY + 50, "28 m ▲", 34, "#101418", anchor="middle", weight="700")}'
     f'</g>')
