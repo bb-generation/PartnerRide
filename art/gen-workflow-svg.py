@@ -107,6 +107,24 @@ def txt(x, y, s, size=12, fill=TEXT, anchor="start", weight="400", mono=False,
             f'text-anchor="{anchor}" font-weight="{weight}"{op} {extra}>{esc(s)}{children}</text>')
 
 
+# ---------------------------------------------------------------- glyphs
+def bt_rune(x, y, scale=1.0, color=BLE, width=2.4, opacity=1.0):
+    """The Bluetooth rune, centred on (x, y); 14 x 26 units before scaling."""
+    return (f'<g transform="translate({x},{y}) scale({scale})" stroke="{color}" fill="none" '
+            f'stroke-width="{width}" stroke-linecap="round" stroke-linejoin="round" opacity="{opacity}">'
+            f'<path d="M-7,-6.5 L7,6.5 L0,13 L0,-13 L7,-6.5 L-7,6.5"/></g>')
+
+
+def no_internet(x, y, scale=1.0, color=FAINT, width=2.0):
+    """A globe with a slash through it — the transport never leaves the two devices."""
+    return (f'<g transform="translate({x},{y}) scale({scale})" stroke="{color}" fill="none" '
+            f'stroke-width="{width}" stroke-linecap="round">'
+            f'<circle cx="0" cy="0" r="12"/>'
+            f'<ellipse cx="0" cy="0" rx="5.5" ry="12"/>'
+            f'<line x1="-12" y1="0" x2="12" y2="0"/>'
+            f'<line x1="-13" y1="13" x2="13" y2="-13" stroke="{BAD}" stroke-width="{width+1.2}"/></g>')
+
+
 # ---------------------------------------------------------------- bike glyph
 def bike(x, y, color, ident, ghost=False):
     """Side view of a rider, facing right; (x, y) is the mid-point of the wheel hubs."""
@@ -141,9 +159,10 @@ add(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" 
     f'role="img" aria-labelledby="ttl dsc">')
 add('<title id="ttl">How PartnerRide computes the gap between two riders</title>')
 add('<desc id="dsc">Animated walkthrough: both Karoos take their own GPS fix stamped with '
-    'satellite time, broadcast it in a 19-byte BLE advertisement, validate the received packet, '
-    'dead-reckon the older fix forward to a common evaluation time, and show the resulting '
-    'signed straight-line distance in the ride data field.</desc>')
+    'satellite time, broadcast it directly to each other in a 19-byte Bluetooth Low Energy '
+    'advertisement — no internet, no phone and no server are involved — validate the received '
+    'packet, dead-reckon the older fix forward to a common evaluation time, and show the '
+    'resulting signed straight-line distance in the ride data field.</desc>')
 
 # defs -------------------------------------------------------------------
 add('<defs>')
@@ -158,9 +177,12 @@ add(f'<rect width="{W}" height="{H}" fill="{BG}"/>')
 
 # header ------------------------------------------------------------------
 add(txt(36, 44, "PartnerRide — how two Karoos measure the gap", 21, TEXT, weight="700"))
-add(txt(36, 66, "One identical APK on both bikes · connectionless BLE · both fixes aligned to a "
-                "single GPS timestamp before the distance is taken", 11.5, MUTED))
+add(txt(36, 66, "One identical APK on both bikes · both fixes aligned to a single GPS timestamp "
+                "before the distance is taken", 11.5, MUTED))
 add(txt(W - 36, 44, "TECHNICAL.md §2–§7", 11, FAINT, anchor="end", mono=True))
+# persistent reminder of the transport: this link is Bluetooth, never the network
+add(bt_rune(W - 226, 63, 0.5, BLE, 3.4))
+add(txt(W - 36, 67, "Bluetooth LE only — no internet", 11, BLE, anchor="end", weight="600"))
 
 # ---------------------------------------------------------------- the stage
 # lane
@@ -246,9 +268,23 @@ for (x0, x1, y, t0, lab_l, lab_r) in ((AX, BX, 398, 6.0, "ADV", "SCAN"),
 for (x0, x1, y, t0) in ((AX, BX, 398, 6.4), (BX, AX, 428, 7.0)):
     d = 1 if x1 > x0 else -1
     add(f'<g>{fade(t0, t0 + 2.0, 0.2, 0.2)}'
-        f'<g><rect x="-46" y="-13" width="92" height="26" rx="7" fill="#1d1b33" stroke="{BLE}"/>'
-        f'{txt(0, 4, "19 B fix", 11, BLE, anchor="middle", mono=True, weight="600")}'
-        f'{motion(f"M{x0 + 40*d},{y} L{x1 - 40*d},{y}", t0, t0 + 1.8)}</g></g>')
+        f'<g><rect x="-56" y="-14" width="112" height="28" rx="8" fill="#1d1b33" stroke="{BLE}"/>'
+        f'{bt_rune(-40, 0, 0.42, BLE, 3.6)}'
+        f'{txt(6, 4, "19 B fix", 11, BLE, anchor="middle", mono=True, weight="600")}'
+        f'{motion(f"M{x0 + 46*d},{y} L{x1 - 46*d},{y}", t0, t0 + 1.8)}</g></g>')
+
+# what the transport is — and what it is not
+add(f'<g>{fade(6.0, P2[1])}'
+    f'<rect x="44" y="391" width="184" height="44" rx="10" fill="#171531" stroke="{BLE}" opacity="0.9"/>'
+    f'{bt_rune(72, 413, 0.62, BLE, 3.0)}'
+    f'{txt(92, 409, "BLUETOOTH LE", 12, BLE, weight="700")}'
+    f'{txt(92, 425, "direct, device ↔ device", 10, MUTED)}'
+    f'</g>')
+add(f'<g>{fade(6.6, P2[1])}'
+    f'{no_internet(756, 412, 1.0, FAINT, 1.8)}'
+    f'{txt(786, 408, "no internet, no phone,", 10.5, MUTED)}'
+    f'{txt(786, 423, "no server, no cloud", 10.5, MUTED)}'
+    f'</g>')
 
 _adv = ("advertise ~250 ms · scan duty-cycled, accepted packets land every 2–3 s · "
         "manufacturer ID 0xFFFF · no pairing, no connection, no ACK")
