@@ -13,14 +13,20 @@ Animation is SMIL only (no CSS, no script) so it plays when the file is embedded
 as an <img> on GitHub; every element keeps sane static attribute values, so a
 renderer without SMIL support still shows a readable composite frame.
 
-Timeline: one CYCLE-second loop; every animation runs dur=CYCLE
-repeatCount="indefinite" with keyTimes carving out its own window.
+Timeline: every phase animation runs dur=CYCLE repeatCount="indefinite" with
+keyTimes carving out its own window. Those windows are authored in seconds on a
+SCORE-second score and converted to fractions, so PLAY_RATE stretches the whole
+walkthrough (reading pace) without touching the score. The physical loops —
+wheels, road dashes, BLE ripples — have their own short durations and are
+deliberately left at real speed.
 """
 
 from pathlib import Path
 
 W, H = 1000, 740
-CYCLE = 20.0
+SCORE = 34.0                # timeline the phase windows below are written on
+PLAY_RATE = 1.0             # >1 stretches the whole walkthrough further
+CYCLE = SCORE * PLAY_RATE
 FADE = 0.35
 
 # ---------------------------------------------------------------- palette
@@ -57,8 +63,8 @@ GAP_M = (BX - GX) / 10.0    # 27.9 m
 NAIVE_M = (BX - AX) / 10.0  # 41.0 m
 
 # ---------------------------------------------------------------- timeline
-P1, P2, P3, P4 = (0.6, 5.6), (5.8, 10.4), (10.6, 15.2), (15.4, 19.4)
-HOLD = 19.0                 # persistent annotations fade out here
+P1, P2, P3, P4 = (1.0, 9.0), (9.4, 17.0), (17.4, 25.0), (25.4, 32.4)
+HOLD = 32.0                 # persistent annotations fade out here
 
 out = []
 
@@ -72,8 +78,8 @@ def add(s):
 
 
 def kt(t):
-    """Absolute seconds -> keyTimes fraction, clamped and rounded."""
-    return f"{max(0.0, min(1.0, t / CYCLE)):.4f}"
+    """Score seconds -> keyTimes fraction, clamped and rounded."""
+    return f"{max(0.0, min(1.0, t / SCORE)):.4f}"
 
 
 def fade(t0, t1, fade_in=FADE, fade_out=FADE):
@@ -210,25 +216,25 @@ add(bike(BX, HUB_Y, B_COL, "b"))
 
 # ================================================================= phase 1
 g1 = [f'<g>']
-g1.append(f'<g>{fade(1.0, P1[1])}'
+g1.append(f'<g>{fade(1.6, P1[1])}'
           f'{txt(500, 168, "GPS 1 Hz · satellite UTC", 11, MUTED, anchor="middle")}</g>')
-for (bx, col, t0) in ((AX, A_COL, 0.8), (BX, B_COL, 2.6)):
+for (bx, col, t0) in ((AX, A_COL, 1.2), (BX, B_COL, 3.4)):
     x0 = SAT[0] + (-20 if bx < SAT[0] else 20)
     y0 = SAT[1] + 26
     x1, y1 = bx + (8 if bx < SAT[0] else -8), LANE_Y - 26
     g1.append(f'<g>{fade(t0, P1[1])}'
               f'<line x1="{x0}" y1="{y0}" x2="{x1}" y2="{y1}" stroke="{col}" stroke-width="1.6" '
               f'stroke-dasharray="4 6" opacity="0.6"/></g>')
-    dot_t = t0 + 0.4
-    g1.append(f'<g>{fade(dot_t, dot_t + 1.4, 0.15, 0.15)}'
-              f'<circle r="5" fill="{col}">{motion(f"M{x0},{y0} L{x1},{y1}", dot_t, dot_t + 1.0)}'
+    dot_t = t0 + 0.5
+    g1.append(f'<g>{fade(dot_t, dot_t + 1.9, 0.15, 0.15)}'
+              f'<circle r="5" fill="{col}">{motion(f"M{x0},{y0} L{x1},{y1}", dot_t, dot_t + 1.5)}'
               f'</circle></g>')
 add("".join(g1) + "</g>")
 
 # fix markers + heading arrows + labels (persist through the loop)
 CAP1, CAP2, CAP3 = HUB_Y + 30, HUB_Y + 45, HUB_Y + 59   # caption lines under each bike
-for (bx, col, name, tm, spd, hdg, t0) in ((AX, A_COL, "KAROO A", T_A, SPD_A, 92, 2.2),
-                                          (BX, B_COL, "KAROO B", T_B, SPD_B, 90, 4.0)):
+for (bx, col, name, tm, spd, hdg, t0) in ((AX, A_COL, "KAROO A", T_A, SPD_A, 92, 2.9),
+                                          (BX, B_COL, "KAROO B", T_B, SPD_B, 90, 5.1)):
     add(f'<g>{fade(t0, HOLD)}'
         f'<circle cx="{bx}" cy="{HUB_Y+13}" r="4.5" fill="{col}"/>'
         f'<line x1="{bx}" y1="{HUB_Y+13}" x2="{bx+52}" y2="{HUB_Y+13}" stroke="{col}" '
@@ -238,7 +244,7 @@ for (bx, col, name, tm, spd, hdg, t0) in ((AX, A_COL, "KAROO A", T_A, SPD_A, 92,
         f'{txt(bx, CAP3, f"{spd} m/s · {hdg}°", 10.5, MUTED, anchor="middle", mono=True)}'
         f'</g>')
 
-add(f'<g>{fade(4.6, P1[1])}'
+add(f'<g>{fade(5.7, P1[1])}'
     f'{txt(500, 356, "both devices fix at 1 Hz, but never at the same instant — these two fixes are 1.6 s apart", 12, TEXT, anchor="middle")}'
     f'{txt(500, 374, "timestamps are Location.getTime() (satellite UTC), never the device clock — the two clocks drift", 11, MUTED, anchor="middle")}'
     f'</g>')
@@ -255,8 +261,8 @@ for bx in (AX, BX):
 g2.append("</g>")
 add("".join(g2))
 
-for (x0, x1, y, t0, lab_l, lab_r) in ((AX, BX, 398, 6.0, "ADV", "SCAN"),
-                                      (BX, AX, 428, 6.4, "ADV", "SCAN")):
+for (x0, x1, y, t0, lab_l, lab_r) in ((AX, BX, 398, 9.8, "ADV", "SCAN"),
+                                      (BX, AX, 428, 10.2, "ADV", "SCAN")):
     d = 1 if x1 > x0 else -1
     add(f'<g>{fade(t0, P2[1])}'
         f'<line x1="{x0 + 34*d}" y1="{y}" x2="{x1 - 34*d}" y2="{y}" stroke="{BLE}" '
@@ -265,22 +271,22 @@ for (x0, x1, y, t0, lab_l, lab_r) in ((AX, BX, 398, 6.0, "ADV", "SCAN"),
         f'{txt(x1 - 36*d, y - 8, lab_r, 9.5, BLE, anchor="start" if d < 0 else "end", mono=True)}'
         f'</g>')
 
-for (x0, x1, y, t0) in ((AX, BX, 398, 6.4), (BX, AX, 428, 7.0)):
+for (x0, x1, y, t0) in ((AX, BX, 398, 10.4), (BX, AX, 428, 11.3)):
     d = 1 if x1 > x0 else -1
-    add(f'<g>{fade(t0, t0 + 2.0, 0.2, 0.2)}'
+    add(f'<g>{fade(t0, t0 + 2.8, 0.2, 0.2)}'
         f'<g><rect x="-56" y="-14" width="112" height="28" rx="8" fill="#1d1b33" stroke="{BLE}"/>'
         f'{bt_rune(-40, 0, 0.42, BLE, 3.6)}'
         f'{txt(6, 4, "19 B fix", 11, BLE, anchor="middle", mono=True, weight="600")}'
-        f'{motion(f"M{x0 + 46*d},{y} L{x1 - 46*d},{y}", t0, t0 + 1.8)}</g></g>')
+        f'{motion(f"M{x0 + 46*d},{y} L{x1 - 46*d},{y}", t0, t0 + 2.5)}</g></g>')
 
 # what the transport is — and what it is not
-add(f'<g>{fade(6.0, P2[1])}'
+add(f'<g>{fade(9.8, P2[1])}'
     f'<rect x="44" y="391" width="184" height="44" rx="10" fill="#171531" stroke="{BLE}" opacity="0.9"/>'
     f'{bt_rune(72, 413, 0.62, BLE, 3.0)}'
     f'{txt(92, 409, "BLUETOOTH LE", 12, BLE, weight="700")}'
     f'{txt(92, 425, "direct, device ↔ device", 10, MUTED)}'
     f'</g>')
-add(f'<g>{fade(6.6, P2[1])}'
+add(f'<g>{fade(10.6, P2[1])}'
     f'{no_internet(756, 412, 1.0, FAINT, 1.8)}'
     f'{txt(786, 408, "no internet, no phone,", 10.5, MUTED)}'
     f'{txt(786, 423, "no server, no cloud", 10.5, MUTED)}'
@@ -288,7 +294,7 @@ add(f'<g>{fade(6.6, P2[1])}'
 
 _adv = ("advertise ~250 ms · scan duty-cycled, accepted packets land every 2–3 s · "
         "manufacturer ID 0xFFFF · no pairing, no connection, no ACK")
-add(f'<g>{fade(6.2, P2[1])}{txt(500, 452, _adv, 11, MUTED, anchor="middle")}</g>')
+add(f'<g>{fade(10.2, P2[1])}{txt(500, 452, _adv, 11, MUTED, anchor="middle")}</g>')
 
 # 19-byte payload bar
 fields = [("ver", 1, "#64748b"), ("PG", 2, "#94a3b8"), ("couple tag", 4, BLE),
@@ -296,7 +302,7 @@ fields = [("ver", 1, "#64748b"), ("PG", 2, "#94a3b8"), ("couple tag", 4, BLE),
           ("v", 1, YELLOW), ("hdg", 1, "#fb7185")]
 BYTE = 28
 bar_x = 500 - (19 * BYTE) / 2
-gb = [f'<g>{fade(7.6, P2[1])}']
+gb = [f'<g>{fade(12.8, P2[1])}']
 gb.append(txt(bar_x - 12, 490, "manufacturer data", 10, FAINT, anchor="end"))
 cx = bar_x
 for name, n, col in fields:
@@ -310,12 +316,12 @@ gb.append("</g>")
 add("".join(gb))
 
 # ================================================================= phase 3
-chips = [("length 19", 11.0), ("version 1", 11.25), ("magic PG", 11.5),
-         ("couple tag", 11.75), ("newer than last", 12.0)]
+chips = [("length 19", 17.9), ("version 1", 18.3), ("magic PG", 18.7),
+         ("couple tag", 19.1), ("newer than last", 19.5)]
 cw = [102, 102, 102, 110, 142]
 total = sum(cw) + 14 * (len(chips) - 1)
 cx = 500 - total / 2
-gc = [f'<g>{fade(P3[0], HOLD)}']
+gc = [f'<g>{fade(17.6, HOLD)}']
 for (label, t0), w in zip(chips, cw):
     gc.append(f'<rect x="{cx}" y="474" width="{w}" height="28" rx="14" fill="#12241a" stroke="{OK}" '
               f'opacity="0.9"/>')
@@ -330,13 +336,13 @@ add("".join(gc))
 
 _v1 = "every advertisement is validated before it is allowed to change anything on screen"
 _v2 = "duplicates of the same fix arrive ~4x a second — the replay guard accepts only a strictly newer timestamp"
-add(f'<g>{fade(10.8, 13.0)}'
+add(f'<g>{fade(18.0, 21.6)}'
     f'{txt(500, 356, _v1, 12, TEXT, anchor="middle")}'
     f'{txt(500, 374, _v2, 11, MUTED, anchor="middle")}'
     f'</g>')
 
 # dead reckoning: ghost A at T_eval
-add(f'<g>{fade(13.2, HOLD)}{bike(GX, HUB_Y, A_COL, "g", ghost=True)}'
+add(f'<g>{fade(22.0, HOLD)}{bike(GX, HUB_Y, A_COL, "g", ghost=True)}'
     f'<line x1="{AX+30}" y1="{HUB_Y+13}" x2="{GX-30}" y2="{HUB_Y+13}" stroke="{A_COL}" '
     f'stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aa)" opacity="0.8"/>'
     f'{txt(GX, CAP1, "A @ T_eval", 11.5, A_COL, anchor="middle", weight="700", opacity=0.8)}'
@@ -347,26 +353,26 @@ add(f'<g>{fade(13.2, HOLD)}{bike(GX, HUB_Y, A_COL, "g", ghost=True)}'
 _dr1 = "T_eval = max(12.000 s, 13.600 s) = 13.600 s — A’s fix is 1.6 s older, so A is dead-reckoned forward"
 _dr2 = ("8.2 m/s × 1.6 s = 13.1 m along 92° (flat-earth projection, capped at 3 s — "
         "beyond that the receiver falls back to timestamp matching)")
-add(f'<g>{fade(13.2, HOLD)}'
+add(f'<g>{fade(22.0, HOLD)}'
     f'{txt(500, 356, _dr1, 12, TEXT, anchor="middle")}'
     f'{txt(500, 374, _dr2, 11, MUTED, anchor="middle")}'
     f'</g>')
 
 # ================================================================= phase 4
 LINE_Y, NAIVE_Y = 192, 158
-add(f'<g>{fade(15.6, HOLD)}'
+add(f'<g>{fade(25.6, HOLD)}'
     f'<line x1="{GX}" y1="{LINE_Y-6}" x2="{GX}" y2="{LANE_Y-2}" stroke="{TEXT}" stroke-width="1.4" opacity="0.55"/>'
     f'<line x1="{BX}" y1="{LINE_Y-6}" x2="{BX}" y2="{LANE_Y-2}" stroke="{TEXT}" stroke-width="1.4" opacity="0.55"/>'
     f'<line x1="{GX}" y1="{LINE_Y}" x2="{BX}" y2="{LINE_Y}" stroke="{TEXT}" stroke-width="2" '
     f'marker-start="url(#aw)" marker-end="url(#aw)" stroke-dasharray="{BX-GX}" '
-    f'stroke-dashoffset="0">{draw_on(BX-GX, 15.6, 16.4)}</line>'
+    f'stroke-dashoffset="0">{draw_on(BX-GX, 25.6, 26.8)}</line>'
     f'</g>')
-add(f'<g>{fade(16.4, HOLD)}'
+add(f'<g>{fade(26.8, HOLD)}'
     f'{txt((GX+BX)/2, LINE_Y-10, f"aligned gap · haversine = {GAP_M:.1f} m → 28 m", 12.5, TEXT, anchor="middle", weight="600")}'
     f'</g>')
 
 _naive = f"comparing the two raw fixes without aligning them would read {NAIVE_M:.0f} m — 13 m too far"
-add(f'<g>{fade(17.0, HOLD)}'
+add(f'<g>{fade(27.8, HOLD)}'
     f'<line x1="{AX}" y1="{NAIVE_Y}" x2="{BX}" y2="{NAIVE_Y}" stroke="{BAD}" stroke-width="1.5" '
     f'stroke-dasharray="7 5" opacity="0.7"/>'
     f'<line x1="{AX}" y1="{NAIVE_Y-6}" x2="{AX}" y2="{LANE_Y-2}" stroke="{BAD}" stroke-width="1.2" '
@@ -391,7 +397,7 @@ for (px, name, col, value, sign_txt, lines, sub) in panels:
     add(f'<circle cx="{px+18}" cy="{PY+22}" r="5" fill="{col}"/>')
     add(txt(px + 30, PY + 26, name, 12.5, TEXT, weight="700"))
     add(txt(px + 30, PY + 42, sub, 9.5, FAINT))
-    gp = [f'<g>{fade(17.4, HOLD)}']
+    gp = [f'<g>{fade(28.8, HOLD)}']
     for i, (k, v) in enumerate(lines):
         gp.append(txt(px + 18, PY + 66 + i * 15, f"{k:<8}{v}", 10, MUTED, mono=True))
     gp.append(txt(px + 18, PY + 104, sign_txt + " (own-heading projection)", 9.5, FAINT))
