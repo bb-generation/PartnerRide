@@ -13,39 +13,24 @@ Animation is SMIL only (no CSS, no script) so it plays when the file is embedded
 as an <img> on GitHub; every element keeps sane static attribute values, so a
 renderer without SMIL support still shows a readable composite frame.
 
-Timeline: every phase animation runs dur=CYCLE repeatCount="indefinite" with
-keyTimes carving out its own window. Those windows are authored in seconds on a
-SCORE-second score and converted to fractions, so PLAY_RATE stretches the whole
-walkthrough (reading pace) without touching the score. The physical loops —
-wheels, road dashes, BLE ripples — have their own short durations and are
-deliberately left at real speed.
+Palette, glyphs and the SMIL timing helpers come from art/svgkit.py; the phase
+windows below are written in seconds on a SCORE-second score, and PLAY_RATE
+stretches the whole walkthrough (reading pace) without touching them. The
+physical loops — wheels, road dashes, BLE ripples — have their own short
+durations and are deliberately left at real speed.
 """
 
 from pathlib import Path
 
+from svgkit import (A_COL, B_COL, BAD, BG, BLE, FAINT, MUTED, OK, PANEL, PANEL_EDGE, TEXT,
+                    YELLOW, Timeline, bike, bt_rune, no_internet, satellite, txt)
+
 W, H = 1000, 740
 SCORE = 34.0                # timeline the phase windows below are written on
 PLAY_RATE = 1.0             # >1 stretches the whole walkthrough further
-CYCLE = SCORE * PLAY_RATE
-FADE = 0.35
-
-# ---------------------------------------------------------------- palette
-BG = "#0e1116"
-PANEL = "#161b23"
-PANEL_EDGE = "#28303c"
-LANE = "#1a2029"
-TEXT = "#e6ebf2"
-MUTED = "#8e99a8"
-FAINT = "#5c6675"
-A_COL = "#4fc3f7"
-B_COL = "#ffb74d"
-BLE = "#a78bfa"
-OK = "#1db954"
-BAD = "#e0352b"
-YELLOW = "#ffc107"
-
-SANS = "ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
-MONO = "ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace"
+_T = Timeline(SCORE, PLAY_RATE)
+fade, motion, draw_on, kt = _T.fade, _T.motion, _T.draw_on, _T.kt
+CYCLE = _T.cycle
 
 # ---------------------------------------------------------------- geometry
 LANE_Y, LANE_H = 222, 74
@@ -69,93 +54,8 @@ HOLD = 32.0                 # persistent annotations fade out here
 out = []
 
 
-def esc(s):
-    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
 def add(s):
     out.append(s)
-
-
-def kt(t):
-    """Score seconds -> keyTimes fraction, clamped and rounded."""
-    return f"{max(0.0, min(1.0, t / SCORE)):.4f}"
-
-
-def fade(t0, t1, fade_in=FADE, fade_out=FADE):
-    """<animate> that shows an element only between t0 and t1 of the loop."""
-    a, b = t0, t0 + fade_in
-    c, d = t1, t1 + fade_out
-    times = ";".join(["0", kt(a), kt(b), kt(c), kt(d), "1"])
-    return (f'<animate attributeName="opacity" values="0;0;1;1;0;0" '
-            f'keyTimes="{times}" calcMode="linear" dur="{CYCLE}s" repeatCount="indefinite"/>')
-
-
-def motion(path, t0, t1):
-    """<animateMotion> that traverses `path` between t0 and t1, parked at the start otherwise."""
-    times = ";".join(["0", kt(t0), kt(t1), "1"])
-    return (f'<animateMotion path="{path}" keyPoints="0;0;1;1" keyTimes="{times}" '
-            f'calcMode="linear" dur="{CYCLE}s" repeatCount="indefinite"/>')
-
-
-def draw_on(length, t0, t1):
-    """Stroke-reveal via dashoffset (element must carry stroke-dasharray=length)."""
-    times = ";".join(["0", kt(t0), kt(t1), "1"])
-    return (f'<animate attributeName="stroke-dashoffset" values="{length};{length};0;0" '
-            f'keyTimes="{times}" calcMode="linear" dur="{CYCLE}s" repeatCount="indefinite"/>')
-
-
-def txt(x, y, s, size=12, fill=TEXT, anchor="start", weight="400", mono=False,
-        opacity=None, extra="", children=""):
-    fam = MONO if mono else SANS
-    op = f' opacity="{opacity}"' if opacity is not None else ""
-    return (f'<text x="{x}" y="{y}" font-family="{fam}" font-size="{size}" fill="{fill}" '
-            f'text-anchor="{anchor}" font-weight="{weight}"{op} {extra}>{esc(s)}{children}</text>')
-
-
-# ---------------------------------------------------------------- glyphs
-def bt_rune(x, y, scale=1.0, color=BLE, width=2.4, opacity=1.0):
-    """The Bluetooth rune, centred on (x, y); 14 x 26 units before scaling."""
-    return (f'<g transform="translate({x},{y}) scale({scale})" stroke="{color}" fill="none" '
-            f'stroke-width="{width}" stroke-linecap="round" stroke-linejoin="round" opacity="{opacity}">'
-            f'<path d="M-7,-6.5 L7,6.5 L0,13 L0,-13 L7,-6.5 L-7,6.5"/></g>')
-
-
-def no_internet(x, y, scale=1.0, color=FAINT, width=2.0):
-    """A globe with a slash through it — the transport never leaves the two devices."""
-    return (f'<g transform="translate({x},{y}) scale({scale})" stroke="{color}" fill="none" '
-            f'stroke-width="{width}" stroke-linecap="round">'
-            f'<circle cx="0" cy="0" r="12"/>'
-            f'<ellipse cx="0" cy="0" rx="5.5" ry="12"/>'
-            f'<line x1="-12" y1="0" x2="12" y2="0"/>'
-            f'<line x1="-13" y1="13" x2="13" y2="-13" stroke="{BAD}" stroke-width="{width+1.2}"/></g>')
-
-
-# ---------------------------------------------------------------- bike glyph
-def bike(x, y, color, ident, ghost=False):
-    """Side view of a rider, facing right; (x, y) is the mid-point of the wheel hubs."""
-    sw = 3 if not ghost else 2.4
-    dash = ' stroke-dasharray="6 5"' if ghost else ""
-    op = 0.5 if ghost else 1.0
-    g = [f'<g transform="translate({x},{y})" stroke="{color}" fill="none" stroke-width="{sw}" '
-         f'stroke-linecap="round" stroke-linejoin="round" opacity="{op}">']
-    for cx in (-24, 24):
-        g.append(f'<circle cx="{cx}" cy="0" r="14"{dash}/>')
-        if not ghost:
-            g.append(
-                f'<g opacity="0.55"><line x1="{cx-10}" y1="0" x2="{cx+10}" y2="0"/>'
-                f'<line x1="{cx}" y1="-10" x2="{cx}" y2="10"/>'
-                f'<animateTransform attributeName="transform" type="rotate" '
-                f'values="0 {cx} 0;360 {cx} 0" dur="0.9s" repeatCount="indefinite"/></g>')
-    # frame: rear hub / bottom bracket / saddle / head tube / front hub
-    g.append(f'<path d="M-24,0 L-4,2 M-4,2 L-16,-22 M-16,-22 L14,-20 M-4,2 L14,-20 '
-             f'M-24,0 L-16,-22 M14,-20 L24,0"{dash}/>')
-    g.append(f'<path d="M-21,-24 L-11,-24 M14,-20 L23,-25"{dash}/>')   # saddle, bar
-    # rider
-    g.append(f'<path d="M-9,-26 L7,-41 M7,-41 L23,-25 M-9,-26 L-4,2"{dash}/>')
-    g.append(f'<circle cx="13" cy="-47" r="6.5"{dash}/>')
-    g.append('</g>')
-    return "".join(g)
 
 
 # ================================================================= document
@@ -200,19 +100,11 @@ add(f'<line x1="52" y1="{LANE_Y+LANE_H/2}" x2="{W-52}" y2="{LANE_Y+LANE_H/2}" st
 add(txt(W - 52, LANE_Y + LANE_H - 10, "direction of travel →", 9.5, FAINT, anchor="end"))
 
 # satellite
-add(f'<g transform="translate({SAT[0]},{SAT[1]})" stroke="{MUTED}" fill="none" stroke-width="2.2" '
-    f'stroke-linecap="round">'
-    f'<rect x="-11" y="-12" width="22" height="24" rx="4" fill="#1b2029"/>'
-    f'<rect x="-34" y="-8" width="20" height="16" rx="2" fill="#1b2029"/>'
-    f'<rect x="14" y="-8" width="20" height="16" rx="2" fill="#1b2029"/>'
-    f'<line x1="-30" y1="-8" x2="-30" y2="8"/><line x1="-22" y1="-8" x2="-22" y2="8"/>'
-    f'<line x1="22" y1="-8" x2="22" y2="8"/><line x1="30" y1="-8" x2="30" y2="8"/>'
-    f'<line x1="0" y1="-12" x2="0" y2="-22"/><circle cx="0" cy="-25" r="3.5"/>'
-    f'</g>')
+add(satellite(SAT[0], SAT[1]))
 
 # bikes (always visible)
-add(bike(AX, HUB_Y, A_COL, "a"))
-add(bike(BX, HUB_Y, B_COL, "b"))
+add(bike(AX, HUB_Y, A_COL))
+add(bike(BX, HUB_Y, B_COL))
 
 # ================================================================= phase 1
 g1 = [f'<g>']
@@ -342,7 +234,7 @@ add(f'<g>{fade(18.0, 21.6)}'
     f'</g>')
 
 # dead reckoning: ghost A at T_eval
-add(f'<g>{fade(22.0, HOLD)}{bike(GX, HUB_Y, A_COL, "g", ghost=True)}'
+add(f'<g>{fade(22.0, HOLD)}{bike(GX, HUB_Y, A_COL, ghost=True)}'
     f'<line x1="{AX+30}" y1="{HUB_Y+13}" x2="{GX-30}" y2="{HUB_Y+13}" stroke="{A_COL}" '
     f'stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aa)" opacity="0.8"/>'
     f'{txt(GX, CAP1, "A @ T_eval", 11.5, A_COL, anchor="middle", weight="700", opacity=0.8)}'

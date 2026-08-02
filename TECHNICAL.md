@@ -27,6 +27,14 @@ state (the replay guard, §5) auto-resets after 30 s of silence so it can never 
 └──────────────────────────────┘          └──────────────────────────────┘
 ```
 
+The same pipeline as an animated walkthrough — one packet A → B, from the GPS fix to the value in
+the data field (the README carries a simplified version of the same picture):
+
+![Both Karoos take their own GPS fix stamped with satellite time, broadcast it directly to each
+other in a 19-byte Bluetooth LE advertisement, validate the received packet, dead-reckon the older
+fix forward to a common evaluation time, and show the resulting signed distance in the ride data
+field](art/partnerride-workflow.svg)
+
 ## 2. BLE transport
 
 | Aspect | Value | Why |
