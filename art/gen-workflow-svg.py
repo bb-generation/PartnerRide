@@ -1,0 +1,407 @@
+#!/usr/bin/env python3
+"""Generate art/partnerride-workflow.svg — an animated walkthrough of the gap pipeline.
+
+The picture follows one packet A -> B through the four stages described in
+TECHNICAL.md: GPS fix (§5), BLE broadcast (§2/§3), validation + dead-reckoning
+alignment (§4/§6.1), and the resulting signed gap in the data field (§6.3/§7).
+
+The distances are drawn to a fixed 10 px = 1 m scale, so the dead-reckoning step
+(+13.1 m) and the resulting gap (27.9 m vs 41 m unaligned) are geometrically
+consistent with the numbers printed in the picture.
+
+Animation is SMIL only (no CSS, no script) so it plays when the file is embedded
+as an <img> on GitHub; every element keeps sane static attribute values, so a
+renderer without SMIL support still shows a readable composite frame.
+
+Timeline: one CYCLE-second loop; every animation runs dur=CYCLE
+repeatCount="indefinite" with keyTimes carving out its own window.
+"""
+
+from pathlib import Path
+
+W, H = 1000, 740
+CYCLE = 20.0
+FADE = 0.35
+
+# ---------------------------------------------------------------- palette
+BG = "#0e1116"
+PANEL = "#161b23"
+PANEL_EDGE = "#28303c"
+LANE = "#1a2029"
+TEXT = "#e6ebf2"
+MUTED = "#8e99a8"
+FAINT = "#5c6675"
+A_COL = "#4fc3f7"
+B_COL = "#ffb74d"
+BLE = "#a78bfa"
+OK = "#1db954"
+BAD = "#e0352b"
+YELLOW = "#ffc107"
+
+SANS = "ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
+MONO = "ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace"
+
+# ---------------------------------------------------------------- geometry
+LANE_Y, LANE_H = 222, 74
+HUB_Y = 280                 # wheel-hub line of the bikes
+AX, BX = 250, 660           # fix positions of rider A and rider B (10 px = 1 m)
+GX = 381                    # A dead-reckoned to T_eval: +13.1 m -> +131 px
+SAT = (500, 116)
+
+# numbers shown in the picture, consistent with 10 px/m
+T_A, T_B = "12.000", "13.600"
+SPD_A, SPD_B = 8.2, 8.4
+DT = 1.6
+DR_M = SPD_A * DT           # 13.12 m
+GAP_M = (BX - GX) / 10.0    # 27.9 m
+NAIVE_M = (BX - AX) / 10.0  # 41.0 m
+
+# ---------------------------------------------------------------- timeline
+P1, P2, P3, P4 = (0.6, 5.6), (5.8, 10.4), (10.6, 15.2), (15.4, 19.4)
+HOLD = 19.0                 # persistent annotations fade out here
+
+out = []
+
+
+def esc(s):
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def add(s):
+    out.append(s)
+
+
+def kt(t):
+    """Absolute seconds -> keyTimes fraction, clamped and rounded."""
+    return f"{max(0.0, min(1.0, t / CYCLE)):.4f}"
+
+
+def fade(t0, t1, fade_in=FADE, fade_out=FADE):
+    """<animate> that shows an element only between t0 and t1 of the loop."""
+    a, b = t0, t0 + fade_in
+    c, d = t1, t1 + fade_out
+    times = ";".join(["0", kt(a), kt(b), kt(c), kt(d), "1"])
+    return (f'<animate attributeName="opacity" values="0;0;1;1;0;0" '
+            f'keyTimes="{times}" calcMode="linear" dur="{CYCLE}s" repeatCount="indefinite"/>')
+
+
+def motion(path, t0, t1):
+    """<animateMotion> that traverses `path` between t0 and t1, parked at the start otherwise."""
+    times = ";".join(["0", kt(t0), kt(t1), "1"])
+    return (f'<animateMotion path="{path}" keyPoints="0;0;1;1" keyTimes="{times}" '
+            f'calcMode="linear" dur="{CYCLE}s" repeatCount="indefinite"/>')
+
+
+def draw_on(length, t0, t1):
+    """Stroke-reveal via dashoffset (element must carry stroke-dasharray=length)."""
+    times = ";".join(["0", kt(t0), kt(t1), "1"])
+    return (f'<animate attributeName="stroke-dashoffset" values="{length};{length};0;0" '
+            f'keyTimes="{times}" calcMode="linear" dur="{CYCLE}s" repeatCount="indefinite"/>')
+
+
+def txt(x, y, s, size=12, fill=TEXT, anchor="start", weight="400", mono=False,
+        opacity=None, extra="", children=""):
+    fam = MONO if mono else SANS
+    op = f' opacity="{opacity}"' if opacity is not None else ""
+    return (f'<text x="{x}" y="{y}" font-family="{fam}" font-size="{size}" fill="{fill}" '
+            f'text-anchor="{anchor}" font-weight="{weight}"{op} {extra}>{esc(s)}{children}</text>')
+
+
+# ---------------------------------------------------------------- bike glyph
+def bike(x, y, color, ident, ghost=False):
+    """Side view of a rider, facing right; (x, y) is the mid-point of the wheel hubs."""
+    sw = 3 if not ghost else 2.4
+    dash = ' stroke-dasharray="6 5"' if ghost else ""
+    op = 0.5 if ghost else 1.0
+    g = [f'<g transform="translate({x},{y})" stroke="{color}" fill="none" stroke-width="{sw}" '
+         f'stroke-linecap="round" stroke-linejoin="round" opacity="{op}">']
+    for cx in (-24, 24):
+        g.append(f'<circle cx="{cx}" cy="0" r="14"{dash}/>')
+        if not ghost:
+            g.append(
+                f'<g opacity="0.55"><line x1="{cx-10}" y1="0" x2="{cx+10}" y2="0"/>'
+                f'<line x1="{cx}" y1="-10" x2="{cx}" y2="10"/>'
+                f'<animateTransform attributeName="transform" type="rotate" '
+                f'values="0 {cx} 0;360 {cx} 0" dur="0.9s" repeatCount="indefinite"/></g>')
+    # frame: rear hub / bottom bracket / saddle / head tube / front hub
+    g.append(f'<path d="M-24,0 L-4,2 M-4,2 L-16,-22 M-16,-22 L14,-20 M-4,2 L14,-20 '
+             f'M-24,0 L-16,-22 M14,-20 L24,0"{dash}/>')
+    g.append(f'<path d="M-21,-24 L-11,-24 M14,-20 L23,-25"{dash}/>')   # saddle, bar
+    # rider
+    g.append(f'<path d="M-9,-26 L7,-41 M7,-41 L23,-25 M-9,-26 L-4,2"{dash}/>')
+    g.append(f'<circle cx="13" cy="-47" r="6.5"{dash}/>')
+    g.append('</g>')
+    return "".join(g)
+
+
+# ================================================================= document
+add(f'<?xml version="1.0" encoding="UTF-8"?>')
+add(f'<!-- PartnerRide gap pipeline. Generated by art/gen-workflow-svg.py - edit that, not this. -->')
+add(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
+    f'role="img" aria-labelledby="ttl dsc">')
+add('<title id="ttl">How PartnerRide computes the gap between two riders</title>')
+add('<desc id="dsc">Animated walkthrough: both Karoos take their own GPS fix stamped with '
+    'satellite time, broadcast it in a 19-byte BLE advertisement, validate the received packet, '
+    'dead-reckon the older fix forward to a common evaluation time, and show the resulting '
+    'signed straight-line distance in the ride data field.</desc>')
+
+# defs -------------------------------------------------------------------
+add('<defs>')
+for name, col in (("aw", TEXT), ("aa", A_COL), ("ab", B_COL), ("ap", BLE), ("ar", BAD)):
+    add(f'<marker id="{name}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" '
+        f'markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="{col}"/></marker>')
+add(f'<linearGradient id="lanegrad" x1="0" y1="0" x2="0" y2="1">'
+    f'<stop offset="0" stop-color="#202836"/><stop offset="1" stop-color="#151a22"/></linearGradient>')
+add('</defs>')
+
+add(f'<rect width="{W}" height="{H}" fill="{BG}"/>')
+
+# header ------------------------------------------------------------------
+add(txt(36, 44, "PartnerRide — how two Karoos measure the gap", 21, TEXT, weight="700"))
+add(txt(36, 66, "One identical APK on both bikes · connectionless BLE · both fixes aligned to a "
+                "single GPS timestamp before the distance is taken", 11.5, MUTED))
+add(txt(W - 36, 44, "TECHNICAL.md §2–§7", 11, FAINT, anchor="end", mono=True))
+
+# ---------------------------------------------------------------- the stage
+# lane
+add(f'<rect x="40" y="{LANE_Y}" width="{W-80}" height="{LANE_H}" rx="10" fill="url(#lanegrad)" '
+    f'stroke="{PANEL_EDGE}"/>')
+add(f'<line x1="52" y1="{LANE_Y+LANE_H/2}" x2="{W-52}" y2="{LANE_Y+LANE_H/2}" stroke="#3a4453" '
+    f'stroke-width="3" stroke-dasharray="26 22" opacity="0.55">'
+    f'<animate attributeName="stroke-dashoffset" values="0;-48" dur="1.1s" repeatCount="indefinite"/></line>')
+add(txt(W - 52, LANE_Y + LANE_H - 10, "direction of travel →", 9.5, FAINT, anchor="end"))
+
+# satellite
+add(f'<g transform="translate({SAT[0]},{SAT[1]})" stroke="{MUTED}" fill="none" stroke-width="2.2" '
+    f'stroke-linecap="round">'
+    f'<rect x="-11" y="-12" width="22" height="24" rx="4" fill="#1b2029"/>'
+    f'<rect x="-34" y="-8" width="20" height="16" rx="2" fill="#1b2029"/>'
+    f'<rect x="14" y="-8" width="20" height="16" rx="2" fill="#1b2029"/>'
+    f'<line x1="-30" y1="-8" x2="-30" y2="8"/><line x1="-22" y1="-8" x2="-22" y2="8"/>'
+    f'<line x1="22" y1="-8" x2="22" y2="8"/><line x1="30" y1="-8" x2="30" y2="8"/>'
+    f'<line x1="0" y1="-12" x2="0" y2="-22"/><circle cx="0" cy="-25" r="3.5"/>'
+    f'</g>')
+
+# bikes (always visible)
+add(bike(AX, HUB_Y, A_COL, "a"))
+add(bike(BX, HUB_Y, B_COL, "b"))
+
+# ================================================================= phase 1
+g1 = [f'<g>']
+g1.append(f'<g>{fade(1.0, P1[1])}'
+          f'{txt(500, 168, "GPS 1 Hz · satellite UTC", 11, MUTED, anchor="middle")}</g>')
+for (bx, col, t0) in ((AX, A_COL, 0.8), (BX, B_COL, 2.6)):
+    x0 = SAT[0] + (-20 if bx < SAT[0] else 20)
+    y0 = SAT[1] + 26
+    x1, y1 = bx + (8 if bx < SAT[0] else -8), LANE_Y - 26
+    g1.append(f'<g>{fade(t0, P1[1])}'
+              f'<line x1="{x0}" y1="{y0}" x2="{x1}" y2="{y1}" stroke="{col}" stroke-width="1.6" '
+              f'stroke-dasharray="4 6" opacity="0.6"/></g>')
+    dot_t = t0 + 0.4
+    g1.append(f'<g>{fade(dot_t, dot_t + 1.4, 0.15, 0.15)}'
+              f'<circle r="5" fill="{col}">{motion(f"M{x0},{y0} L{x1},{y1}", dot_t, dot_t + 1.0)}'
+              f'</circle></g>')
+add("".join(g1) + "</g>")
+
+# fix markers + heading arrows + labels (persist through the loop)
+CAP1, CAP2, CAP3 = HUB_Y + 30, HUB_Y + 45, HUB_Y + 59   # caption lines under each bike
+for (bx, col, name, tm, spd, hdg, t0) in ((AX, A_COL, "KAROO A", T_A, SPD_A, 92, 2.2),
+                                          (BX, B_COL, "KAROO B", T_B, SPD_B, 90, 4.0)):
+    add(f'<g>{fade(t0, HOLD)}'
+        f'<circle cx="{bx}" cy="{HUB_Y+13}" r="4.5" fill="{col}"/>'
+        f'<line x1="{bx}" y1="{HUB_Y+13}" x2="{bx+52}" y2="{HUB_Y+13}" stroke="{col}" '
+        f'stroke-width="2.4" marker-end="url(#{"aa" if col==A_COL else "ab"})"/>'
+        f'{txt(bx, CAP1, name, 11.5, col, anchor="middle", weight="700")}'
+        f'{txt(bx, CAP2, f"fix t = {tm} s", 11, TEXT, anchor="middle", mono=True)}'
+        f'{txt(bx, CAP3, f"{spd} m/s · {hdg}°", 10.5, MUTED, anchor="middle", mono=True)}'
+        f'</g>')
+
+add(f'<g>{fade(4.6, P1[1])}'
+    f'{txt(500, 356, "both devices fix at 1 Hz, but never at the same instant — these two fixes are 1.6 s apart", 12, TEXT, anchor="middle")}'
+    f'{txt(500, 374, "timestamps are Location.getTime() (satellite UTC), never the device clock — the two clocks drift", 11, MUTED, anchor="middle")}'
+    f'</g>')
+
+# ================================================================= phase 2
+g2 = [f'<g>{fade(P2[0], P2[1])}']
+for bx in (AX, BX):
+    for delay in (0.0, 0.6, 1.2):
+        g2.append(
+            f'<circle cx="{bx}" cy="{HUB_Y-20}" r="24" fill="none" stroke="{BLE}" stroke-width="2">'
+            f'<animate attributeName="r" values="24;104" dur="1.8s" begin="{delay}s" repeatCount="indefinite"/>'
+            f'<animate attributeName="opacity" values="0.55;0" dur="1.8s" begin="{delay}s" repeatCount="indefinite"/>'
+            f'</circle>')
+g2.append("</g>")
+add("".join(g2))
+
+for (x0, x1, y, t0, lab_l, lab_r) in ((AX, BX, 398, 6.0, "ADV", "SCAN"),
+                                      (BX, AX, 428, 6.4, "ADV", "SCAN")):
+    d = 1 if x1 > x0 else -1
+    add(f'<g>{fade(t0, P2[1])}'
+        f'<line x1="{x0 + 34*d}" y1="{y}" x2="{x1 - 34*d}" y2="{y}" stroke="{BLE}" '
+        f'stroke-width="1.8" stroke-dasharray="3 5" opacity="0.7" marker-end="url(#ap)"/>'
+        f'{txt(x0 + 36*d, y - 8, lab_l, 9.5, BLE, anchor="end" if d < 0 else "start", mono=True)}'
+        f'{txt(x1 - 36*d, y - 8, lab_r, 9.5, BLE, anchor="start" if d < 0 else "end", mono=True)}'
+        f'</g>')
+
+for (x0, x1, y, t0) in ((AX, BX, 398, 6.4), (BX, AX, 428, 7.0)):
+    d = 1 if x1 > x0 else -1
+    add(f'<g>{fade(t0, t0 + 2.0, 0.2, 0.2)}'
+        f'<g><rect x="-46" y="-13" width="92" height="26" rx="7" fill="#1d1b33" stroke="{BLE}"/>'
+        f'{txt(0, 4, "19 B fix", 11, BLE, anchor="middle", mono=True, weight="600")}'
+        f'{motion(f"M{x0 + 40*d},{y} L{x1 - 40*d},{y}", t0, t0 + 1.8)}</g></g>')
+
+_adv = ("advertise ~250 ms · scan duty-cycled, accepted packets land every 2–3 s · "
+        "manufacturer ID 0xFFFF · no pairing, no connection, no ACK")
+add(f'<g>{fade(6.2, P2[1])}{txt(500, 452, _adv, 11, MUTED, anchor="middle")}</g>')
+
+# 19-byte payload bar
+fields = [("ver", 1, "#64748b"), ("PG", 2, "#94a3b8"), ("couple tag", 4, BLE),
+          ("t", 2, A_COL), ("lat", 4, "#34d399"), ("lon", 4, "#34d399"),
+          ("v", 1, YELLOW), ("hdg", 1, "#fb7185")]
+BYTE = 28
+bar_x = 500 - (19 * BYTE) / 2
+gb = [f'<g>{fade(7.6, P2[1])}']
+gb.append(txt(bar_x - 12, 490, "manufacturer data", 10, FAINT, anchor="end"))
+cx = bar_x
+for name, n, col in fields:
+    w = n * BYTE
+    gb.append(f'<rect x="{cx}" y="{474}" width="{w-3}" height="24" rx="4" fill="{col}" opacity="0.22" '
+              f'stroke="{col}"/>')
+    gb.append(txt(cx + (w - 3) / 2, 490, name, 10, col, anchor="middle", mono=True))
+    gb.append(txt(cx + (w - 3) / 2, 512, f"{n} B", 9, FAINT, anchor="middle", mono=True))
+    cx += w
+gb.append("</g>")
+add("".join(gb))
+
+# ================================================================= phase 3
+chips = [("length 19", 11.0), ("version 1", 11.25), ("magic PG", 11.5),
+         ("couple tag", 11.75), ("newer than last", 12.0)]
+cw = [102, 102, 102, 110, 142]
+total = sum(cw) + 14 * (len(chips) - 1)
+cx = 500 - total / 2
+gc = [f'<g>{fade(P3[0], HOLD)}']
+for (label, t0), w in zip(chips, cw):
+    gc.append(f'<rect x="{cx}" y="474" width="{w}" height="28" rx="14" fill="#12241a" stroke="{OK}" '
+              f'opacity="0.9"/>')
+    gc.append(txt(cx + w / 2 + 11, 493, label, 11, TEXT, anchor="middle", mono=True))
+    gc.append(f'<g>{fade(t0, HOLD, 0.15)}<path d="M{cx+13},{488} l4,5 l8,-10" stroke="{OK}" '
+              f'stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>')
+    cx += w + 14
+gc.append(txt(500, 522, "validated in order — every failure is a silent drop (debug log only, never a crash)",
+              10.5, MUTED, anchor="middle"))
+gc.append("</g>")
+add("".join(gc))
+
+_v1 = "every advertisement is validated before it is allowed to change anything on screen"
+_v2 = "duplicates of the same fix arrive ~4x a second — the replay guard accepts only a strictly newer timestamp"
+add(f'<g>{fade(10.8, 13.0)}'
+    f'{txt(500, 356, _v1, 12, TEXT, anchor="middle")}'
+    f'{txt(500, 374, _v2, 11, MUTED, anchor="middle")}'
+    f'</g>')
+
+# dead reckoning: ghost A at T_eval
+add(f'<g>{fade(13.2, HOLD)}{bike(GX, HUB_Y, A_COL, "g", ghost=True)}'
+    f'<line x1="{AX+30}" y1="{HUB_Y+13}" x2="{GX-30}" y2="{HUB_Y+13}" stroke="{A_COL}" '
+    f'stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aa)" opacity="0.8"/>'
+    f'{txt(GX, CAP1, "A @ T_eval", 11.5, A_COL, anchor="middle", weight="700", opacity=0.8)}'
+    f'{txt(GX, CAP2, "dead-reckoned", 11, TEXT, anchor="middle", mono=True, opacity=0.8)}'
+    f'{txt(GX, CAP3, f"+{DR_M:.1f} m in {DT} s", 10.5, MUTED, anchor="middle", mono=True)}'
+    f'</g>')
+
+_dr1 = "T_eval = max(12.000 s, 13.600 s) = 13.600 s — A’s fix is 1.6 s older, so A is dead-reckoned forward"
+_dr2 = ("8.2 m/s × 1.6 s = 13.1 m along 92° (flat-earth projection, capped at 3 s — "
+        "beyond that the receiver falls back to timestamp matching)")
+add(f'<g>{fade(13.2, HOLD)}'
+    f'{txt(500, 356, _dr1, 12, TEXT, anchor="middle")}'
+    f'{txt(500, 374, _dr2, 11, MUTED, anchor="middle")}'
+    f'</g>')
+
+# ================================================================= phase 4
+LINE_Y, NAIVE_Y = 192, 158
+add(f'<g>{fade(15.6, HOLD)}'
+    f'<line x1="{GX}" y1="{LINE_Y-6}" x2="{GX}" y2="{LANE_Y-2}" stroke="{TEXT}" stroke-width="1.4" opacity="0.55"/>'
+    f'<line x1="{BX}" y1="{LINE_Y-6}" x2="{BX}" y2="{LANE_Y-2}" stroke="{TEXT}" stroke-width="1.4" opacity="0.55"/>'
+    f'<line x1="{GX}" y1="{LINE_Y}" x2="{BX}" y2="{LINE_Y}" stroke="{TEXT}" stroke-width="2" '
+    f'marker-start="url(#aw)" marker-end="url(#aw)" stroke-dasharray="{BX-GX}" '
+    f'stroke-dashoffset="0">{draw_on(BX-GX, 15.6, 16.4)}</line>'
+    f'</g>')
+add(f'<g>{fade(16.4, HOLD)}'
+    f'{txt((GX+BX)/2, LINE_Y-10, f"aligned gap · haversine = {GAP_M:.1f} m → 28 m", 12.5, TEXT, anchor="middle", weight="600")}'
+    f'</g>')
+
+_naive = f"comparing the two raw fixes without aligning them would read {NAIVE_M:.0f} m — 13 m too far"
+add(f'<g>{fade(17.0, HOLD)}'
+    f'<line x1="{AX}" y1="{NAIVE_Y}" x2="{BX}" y2="{NAIVE_Y}" stroke="{BAD}" stroke-width="1.5" '
+    f'stroke-dasharray="7 5" opacity="0.7"/>'
+    f'<line x1="{AX}" y1="{NAIVE_Y-6}" x2="{AX}" y2="{LANE_Y-2}" stroke="{BAD}" stroke-width="1.2" '
+    f'stroke-dasharray="3 5" opacity="0.4"/>'
+    f'<line x1="{BX}" y1="{NAIVE_Y-6}" x2="{BX}" y2="{NAIVE_Y+6}" stroke="{BAD}" stroke-width="1.5" opacity="0.7"/>'
+    f'{txt(330, NAIVE_Y-9, f"raw fixes, unaligned: {NAIVE_M:.0f} m ✗", 11, BAD, anchor="middle")}'
+    f'{txt(500, 396, _naive, 11, BAD, anchor="middle")}'
+    f'</g>')
+
+# ---------------------------------------------------------------- panels
+PY, PH, PW = 530, 118, 320
+panels = [
+    (80, "KAROO A", A_COL, "28 m ▲", "partner ahead",
+     [("own fix", "13.900 s"), ("from B", "12.300 s")],
+     "same pipeline, other direction"),
+    (600, "KAROO B", B_COL, "28 m ▼", "partner behind",
+     [("own fix", "13.600 s"), ("from A", "12.000 s")],
+     "receiver in this walkthrough"),
+]
+for (px, name, col, value, sign_txt, lines, sub) in panels:
+    add(f'<rect x="{px}" y="{PY}" width="{PW}" height="{PH}" rx="12" fill="{PANEL}" stroke="{PANEL_EDGE}"/>')
+    add(f'<circle cx="{px+18}" cy="{PY+22}" r="5" fill="{col}"/>')
+    add(txt(px + 30, PY + 26, name, 12.5, TEXT, weight="700"))
+    add(txt(px + 30, PY + 42, sub, 9.5, FAINT))
+    gp = [f'<g>{fade(17.4, HOLD)}']
+    for i, (k, v) in enumerate(lines):
+        gp.append(txt(px + 18, PY + 66 + i * 15, f"{k:<8}{v}", 10, MUTED, mono=True))
+    gp.append(txt(px + 18, PY + 104, sign_txt + " (own-heading projection)", 9.5, FAINT))
+    bx0 = px + PW - 16 - 132
+    gp.append(txt(bx0 + 66, PY + 26, "PARTNER GAP", 8.5, FAINT, anchor="middle", mono=True))
+    gp.append(f'<rect x="{bx0}" y="{PY+34}" width="132" height="52" rx="6" fill="{YELLOW}"/>')
+    gp.append(txt(bx0 + 66, PY + 70, value, 26, "#101418", anchor="middle", weight="700"))
+    gp.append("</g>")
+    add("".join(gp))
+
+# middle column: symmetry + zone legend
+add(txt(500, PY + 30, "↔", 22, FAINT, anchor="middle"))
+add(txt(500, PY + 50, "identical code,", 9.5, FAINT, anchor="middle"))
+add(txt(500, PY + 63, "both directions", 9.5, FAINT, anchor="middle"))
+zx = 500 - 66
+for i, (c, lbl) in enumerate(((OK, "≤15"), (YELLOW, "≤50"), (BAD, ">50"))):
+    add(f'<rect x="{zx + i*44}" y="{PY+80}" width="14" height="14" rx="3" fill="{c}"/>')
+    add(txt(zx + i * 44 + 18, PY + 91, lbl, 9.5, MUTED, mono=True))
+add(txt(500, PY + 108, "zone colors (m)", 9, FAINT, anchor="middle"))
+
+# ---------------------------------------------------------------- step legend
+steps = [
+    ("1", "GPS FIX", ["each device takes its own 1 Hz fix,", "stamped with satellite UTC time"], P1),
+    ("2", "BROADCAST", ["19-byte BLE advertisement, ~250 ms,", "no pairing, no ACK — both ways"], P2),
+    ("3", "VALIDATE + ALIGN", ["drop anything malformed, then dead-", "reckon the older fix to T_eval"], P3),
+    ("4", "GAP", ["haversine between the aligned points,", "signed by own heading → data field"], P4),
+]
+SY, SH, SW = 662, 62, 220
+for i, (num, title, desc, (t0, t1)) in enumerate(steps):
+    sx = 24 + i * (SW + 24)
+    add(f'<g><rect x="{sx}" y="{SY}" width="{SW}" height="{SH}" rx="10" fill="{PANEL}" '
+        f'stroke="{PANEL_EDGE}">'
+        f'<animate attributeName="stroke" values="{PANEL_EDGE};{PANEL_EDGE};{A_COL};{A_COL};{PANEL_EDGE};{PANEL_EDGE}" '
+        f'keyTimes="0;{kt(t0)};{kt(t0+0.3)};{kt(t1)};{kt(t1+0.3)};1" dur="{CYCLE}s" repeatCount="indefinite"/>'
+        f'</rect>'
+        f'<g opacity="0.5"><animate attributeName="opacity" values="0.5;0.5;1;1;0.5;0.5" '
+        f'keyTimes="0;{kt(t0)};{kt(t0+0.3)};{kt(t1)};{kt(t1+0.3)};1" dur="{CYCLE}s" repeatCount="indefinite"/>'
+        f'<circle cx="{sx+22}" cy="{SY+22}" r="11" fill="none" stroke="{MUTED}"/>'
+        f'{txt(sx+22, SY+26, num, 11, TEXT, anchor="middle", weight="700", mono=True)}'
+        f'{txt(sx+42, SY+26, title, 12, TEXT, weight="700")}'
+        f'{txt(sx+16, SY+42, desc[0], 9.5, MUTED)}'
+        f'{txt(sx+16, SY+54, desc[1], 9.5, MUTED)}'
+        f'</g></g>')
+
+add('</svg>')
+
+dest = Path(__file__).resolve().parent / "partnerride-workflow.svg"
+dest.write_text("\n".join(out), encoding="utf-8")
+print(f"wrote {dest} ({dest.stat().st_size} bytes)")
