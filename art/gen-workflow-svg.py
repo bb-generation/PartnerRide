@@ -23,7 +23,7 @@ durations and are deliberately left at real speed.
 from pathlib import Path
 
 from svgkit import (A_COL, B_COL, BAD, BG, BLE, FAINT, MUTED, OK, PANEL, PANEL_EDGE, TEXT,
-                    YELLOW, Timeline, bike, bt_rune, no_internet, satellite, txt)
+                    YELLOW, Timeline, bike, bt_rune, no_internet, road_dashes, satellite, txt)
 
 W, H = 1000, 740
 SCORE = 34.0                # timeline the phase windows below are written on
@@ -94,9 +94,7 @@ add(txt(W - 36, 67, "Bluetooth LE only — no internet", 11, BLE, anchor="end", 
 # lane
 add(f'<rect x="40" y="{LANE_Y}" width="{W-80}" height="{LANE_H}" rx="10" fill="url(#lanegrad)" '
     f'stroke="{PANEL_EDGE}"/>')
-add(f'<line x1="52" y1="{LANE_Y+LANE_H/2}" x2="{W-52}" y2="{LANE_Y+LANE_H/2}" stroke="#3a4453" '
-    f'stroke-width="3" stroke-dasharray="26 22" opacity="0.55">'
-    f'<animate attributeName="stroke-dashoffset" values="0;-48" dur="1.1s" repeatCount="indefinite"/></line>')
+add(road_dashes(52, W - 52, LANE_Y + LANE_H / 2, opacity=0.55))
 add(txt(W - 52, LANE_Y + LANE_H - 10, "direction of travel →", 9.5, FAINT, anchor="end"))
 
 # satellite

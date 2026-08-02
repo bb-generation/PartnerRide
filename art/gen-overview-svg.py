@@ -14,7 +14,7 @@ and timing helpers live in art/svgkit.py.
 from pathlib import Path
 
 from svgkit import (A_COL, B_COL, BG, BLE, FAINT, MUTED, PANEL_EDGE, TEXT, YELLOW,
-                    Timeline, bike, bt_rune, satellite, txt)
+                    Timeline, bike, bt_rune, road_dashes, satellite, txt)
 
 W, H = 900, 400
 SCORE = 20.0                # three beats of ~6 s
@@ -69,10 +69,7 @@ add(f'<rect width="{W}" height="{H}" fill="{BG}"/>')
 # ---------------------------------------------------------------- the stage
 add(f'<rect x="30" y="{LANE_Y}" width="{W-60}" height="{LANE_H}" rx="10" fill="url(#lane)" '
     f'stroke="{PANEL_EDGE}"/>')
-add(f'<line x1="42" y1="{LANE_Y+LANE_H/2}" x2="{W-42}" y2="{LANE_Y+LANE_H/2}" stroke="#3a4453" '
-    f'stroke-width="3" stroke-dasharray="26 22" opacity="0.5">'
-    f'<animate attributeName="stroke-dashoffset" values="0;-48" dur="1.1s" repeatCount="indefinite"/>'
-    f'</line>')
+add(road_dashes(42, W - 42, LANE_Y + LANE_H / 2))
 add(satellite(SAT[0], SAT[1]))
 add(bike(YOU, HUB_Y, A_COL))
 add(bike(PARTNER, HUB_Y, B_COL))

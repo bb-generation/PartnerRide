@@ -92,6 +92,20 @@ def no_internet(x, y, scale=1.0, color=FAINT, width=2.0):
             f'<line x1="-13" y1="13" x2="13" y2="-13" stroke="{BAD}" stroke-width="{width+1.2}"/></g>')
 
 
+def road_dashes(x1, x2, y, color="#3a4453", width=3, dash=(26, 22), dur=0.6, opacity=0.5):
+    """The lane's centre line, sweeping backwards under the riders.
+
+    Both riders travel to the right, so the markings have to run to the left. A
+    *rising* stroke-dashoffset shifts the pattern against the path direction,
+    which is what does that — the sign is the whole point of this helper.
+    """
+    period = dash[0] + dash[1]
+    return (f'<line x1="{x1}" y1="{y}" x2="{x2}" y2="{y}" stroke="{color}" stroke-width="{width}" '
+            f'stroke-dasharray="{dash[0]} {dash[1]}" opacity="{opacity}">'
+            f'<animate attributeName="stroke-dashoffset" values="0;{period}" dur="{dur}s" '
+            f'repeatCount="indefinite"/></line>')
+
+
 def satellite(x, y, color=MUTED, fill="#1b2029", width=2.2):
     """Body, two solar panels and an antenna, centred on (x, y)."""
     return (f'<g transform="translate({x},{y})" stroke="{color}" fill="none" stroke-width="{width}" '
