@@ -1,0 +1,15 @@
+version: 2
+
+# Actions only, deliberately. Gradle updates are not automated here: CI can validate a workflow
+# change completely, but it cannot validate an Android dependency bump — the JVM tests only cover
+# `core/`, and the only real test of a Compose/Glance/karoo-ext change is two physical Karoos.
+# Merging such a PR also means cutting a release, which both riders must install at once.
+# Dependabot *alerts* (repo settings, no config) cover the CVE case without opening those PRs.
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
