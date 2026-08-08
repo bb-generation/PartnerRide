@@ -57,13 +57,35 @@ link without two physical devices; everything testable without hardware lives in
 
 Bump `versionCode`/`versionName`, tag `vX.Y.Z`, publish a GitHub Release. That triggers
 `.github/workflows/release.yml`, which attaches the APK plus a generated `manifest.json` and
-`icon.png` at stable `.../releases/latest/download/...` URLs — `AndroidManifest.xml`'s
-`MANIFEST_URL` points there so Karoo OS shows an update signal in Settings → Extensions.
+`icon.png` at stable `.../releases/latest/download/...` URLs.
 
 - The workflow fails if the tag and `versionName` disagree, so bump before tagging.
 - Both devices must run the same version, so there is no partial-rollout path — a release is an
   all-or-nothing swap for both riders.
 - `.github/workflows/ci.yml` runs tests, lint and a debug build on every push and PR.
+
+## Update discovery (currently off)
+
+`AndroidManifest.xml` has **no** `io.hammerhead.karooext.MANIFEST_URL`, deliberately. That URL has
+to be fetchable with no credentials, and GitHub returns 404 on a private repo's release assets to
+anyone unauthenticated. Karoo OS and the phone companion app have no GitHub session — only a
+browser does — so 1.6.0 and 1.6.1, the first releases to carry it, failed with "download failed"
+on every install, while 1.5.1 (no `MANIFEST_URL`) installed fine over the same companion-app flow.
+
+Add it back **only once this repository is public**, pointing at
+`https://github.com/bb-generation/PartnerRide/releases/latest/download/manifest.json`. Verify
+first, unauthenticated:
+
+```powershell
+curl.exe -sIL -o NUL -w "%{http_code}\n" https://github.com/bb-generation/PartnerRide/releases/latest/download/manifest.json
+```
+
+200 means it will work; 404 means it will not. The `generateManifest` task and the workflow's
+manifest/icon upload are left in place on purpose, so the assets are already published and correct
+whenever that switch is flipped.
+
+Until then, getting a build onto a device means transferring the APK by hand (phone browser →
+companion app) or `adb install`; nothing checks for updates on its own.
 
 ## Architecture
 
