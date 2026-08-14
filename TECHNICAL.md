@@ -9,10 +9,10 @@ Two Karoo devices run the identical APK. There is no master/slave, no pairing, n
 connection, and no acknowledgement — each device is simultaneously:
 
 - a **broadcaster**: BLE legacy advertisement containing its own most recent GPS fix, refreshed
-  in place on every fix (~1 Hz), transmitted every ~250 ms;
-- a **receiver**: BLE scanner (duty-cycled to save battery, landing updates roughly every
-  2–3 s) that picks up the partner's advertisements and recomputes the gap on every
-  accepted packet (never on a timer).
+  in place on every fix (~1 Hz), transmitted every ~100 ms;
+- a **receiver**: BLE scanner (continuous, landing updates roughly once a second) that picks up
+  the partner's advertisements and recomputes the gap on every accepted packet (never on a
+  timer).
 
 Because the link is stateless, "reconnection" does not exist as a concept: when the partner
 comes back into radio range, their packets simply start being accepted again. The only receiver
@@ -41,11 +41,11 @@ field](art/partnerride-workflow.svg)
 |---|---|---|
 | Advertisement type | Legacy, non-connectable, non-scannable (`ADV_NONCONN_IND`) | Fits every scanner; ~24 usable payload bytes is enough |
 | Advertising API | `AdvertisingSet` (API 26+), `setLegacyMode(true)` | Allows `setAdvertisingData()` to swap the payload **in place** per GPS fix — no stop/start churn |
-| Advertising interval | `INTERVAL_MEDIUM` (~250 ms) | Own GPS fixes change ~1x/s, so `INTERVAL_LOW`'s 10 TX/s was pure redundancy; ~4 TX/s still gives a duty-cycled scanner several chances per fix at ~1/4 the advertising-side radio time |
+| Advertising interval | `INTERVAL_LOW` (~100 ms) | ~10 TX per GPS fix. The redundancy is the point: it is what gets a fix through the packet loss of a moving bike-to-bike link. `INTERVAL_MEDIUM` (~250 ms) was tried for battery and reverted — see the scan mode row |
 | TX power | `TX_POWER_HIGH` | Maximize range (~50–150 m open air) |
 | Carrier | Manufacturer-specific data, manufacturer ID `0xFFFF` | Bluetooth SIG *test* ID; single constant `PacketCodec.MANUFACTURER_ID` |
-| Scan mode | `SCAN_MODE_BALANCED`, fixed (not user-selectable) | Duty-cycles the receiver (~25% listening) to save radio power while still landing updates roughly every 2–3 s given the advertising interval above. Not exposed as a setting — the tradeoff is made once for everyone rather than asking riders to choose |
-| Scan result batching | `setReportDelay(SCAN_REPORT_DELAY_MS)` (2 s), when `BluetoothAdapter.isOffloadedScanBatchingSupported` | The controller buffers matched advertisements in its own memory and wakes the AP once per delay window (`onBatchScanResults`) instead of once per advertisement (`onScanResult`) — cuts CPU/Binder wakeups without dropping any packets or affecting radio listening time. Falls back to immediate per-result delivery on hardware without batching support |
+| Scan mode | `SCAN_MODE_LOW_LATENCY`, fixed (not user-selectable) | Scans continuously, so a partner packet lands about once per second. Duty-cycled `SCAN_MODE_BALANCED` was tried to save battery (1.5.0–1.6.2) and failed in the field: the gap would go fresh, then the receiver slept through 15–30 s of advertisements and the field sat counting the age up, repeatedly. Battery is the cheaper thing to spend. Not exposed as a setting either — the tradeoff is made once for everyone rather than asking riders to judge it |
+| Scan result batching | None — `setReportDelay(0)` | Controller-side batching saves AP wakeups but holds every packet for a whole delay window before delivering it. It shipped alongside the duty-cycled scan mode and was reverted with it. `onBatchScanResults` is still implemented as a safety net for controllers that batch regardless, and sorts each batch chronologically (§4) |
 | Scan filter | Hardware `ScanFilter` on manufacturer ID `0xFFFF`, empty data mask | Cheap pre-filter; full validation still happens in software (§4). `USE_HARDWARE_FILTER = false` switches to a permissive scan if a device's filtering proves unreliable |
 | Scan restart | Stop + immediate start every **20 min** | Android demotes scans older than 30 min to opportunistic mode; the restart resets that timer |
 | Scan-start rate limit | Guard queue keeps starts ≤ 4 per 30 s | Android silently blocks apps starting > 5 scans per 30 s; normal operation is 1 start per 20 min |
@@ -191,11 +191,11 @@ reliable heading exists (standing still), the last stable sign is kept.
 ### 6.4 Smoothing, rounding, colors
 
 - **Smoothing**: rolling average of the last `smoothingWindow` gap **magnitudes**, with the
-  current sign applied to the result. The constructor default is `1` — effectively disabled
-  (was `3`; the parameter and averaging logic are kept, not removed, so raising it back is a
-  one-line change). Under duty-cycled scanning (§2) accepted packets already land several
-  seconds apart, and averaging N of them would multiply the displayed lag by N, working
-  against the ~2–3 s freshness target.
+  current sign applied to the result. The constructor default is `3`. Continuous scanning (§2)
+  lands packets about once a second, so a 3-value window takes the GPS jitter off the number
+  while the displayed lag stays under a rider's notice. (It was briefly `1` — averaging off —
+  during the duty-cycled-scan experiment, when accepted packets were several seconds apart and
+  averaging three of them would have tripled an already-visible lag.)
   Averaging *signed* values would be wrong at any window > 1: riding side by side the sign
   oscillates, so `+30 / −30 / +30` would report 10 m and the zone color and drop-off alert
   (both of which consume `abs(smoothedGapMeters)`) would under-read the real separation.
@@ -307,8 +307,8 @@ Consequences:
 | Extrapolation cap | 3 s | `GapEngine.maxExtrapolationMs` |
 | Matching-fallback error cap | 5 s | `GapEngine.maxMatchErrorMs` |
 | Replay-guard reset | 30 s | `GapEngine.DEFAULT_REPLAY_RESET_MS` (must be < 32.768 s) |
-| Smoothing window | 1 value (disabled; was 3) | `GapEngine.smoothingWindow` |
-| Scan report delay (batching) | 2 s, if supported | `PartnerLinkService.SCAN_REPORT_DELAY_MS` |
+| Smoothing window | 3 values | `GapEngine.smoothingWindow` |
+| Scan report delay (batching) | 0 (off) | `PartnerLinkService.startScanIfAllowed` |
 | Heading reliability distance | 2 m | `GapEngine.headingMinDistanceM` |
 | Zone thresholds / hysteresis | 15 m, 50 m / ±1 m | `ZoneTracker` |
 | Fresh / signal-lost limit | 5 s / 60 s | `FieldState.FRESH_MS` / `FieldState.SIGNAL_LOST_MS` |

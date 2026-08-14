@@ -16,9 +16,9 @@ Developer-level details (BLE transport, payload byte layout, time model, gap alg
 bike over Bluetooth — no internet, no phone — and the distance between the two of you appears on
 your ride screen](art/partnerride-overview.svg)
 
-- Both devices simultaneously advertise (legacy BLE, manufacturer data, ~250 ms interval, max TX
-  power) and scan (duty-cycled to save battery, with results batched so updates land roughly
-  every 2–3 s). The 19-byte packet carries a format version, an app magic constant, a 4-byte
+- Both devices simultaneously advertise (legacy BLE, manufacturer data, ~100 ms interval, max TX
+  power) and scan (continuously, so updates land roughly once a second). The 19-byte packet
+  carries a format version, an app magic constant, a 4-byte
   couple-code tag, the GPS fix timestamp (mod 65536, from satellite time), lat/lon, and the speed
   and heading of the fix (1 byte each, `0xFF` = unknown).
 - The gap is computed by *dead reckoning with timestamp alignment*: both positions are
@@ -29,10 +29,9 @@ your ride screen](art/partnerride-overview.svg)
   are never compared directly, so the gap stays accurate despite packet latency. Distance is
   straight-line (haversine); the ahead/behind sign is the projection of the vector to the partner
   onto the rider's own heading.
-- The display is unsmoothed (each accepted packet's raw gap is shown directly) to keep latency low
-  under duty-cycled scanning; a rolling-average smoothing option exists in the code but is
-  currently disabled. The background color has ~2 m of hysteresis at the 15 m and 50 m
-  thresholds.
+- The displayed distance is a rolling average of the last three readings, which takes the GPS
+  jitter off the number without adding lag you would notice. The background color has ~2 m of
+  hysteresis at the 15 m and 50 m thresholds.
 - Both riders enter the same 6-digit couple code (e.g. `428713`); only packets with a matching
   code tag are accepted. Optional gap alert: beep + full-screen flash the first
   time the gap exceeds a threshold, re-armed when the gap closes again.
@@ -116,7 +115,7 @@ format is validated strictly, so mismatched versions simply won't see each other
    once each time the smoothed gap first exceeds the threshold, and re-arms after the gap closes.
 
 The link runs whenever the extension is enabled — no ride recording needed. Scanning is
-duty-cycled to save battery, landing updates every ~2-3 s.
+continuous, landing updates about once a second.
 
 ## About the two Android permission pop-ups
 

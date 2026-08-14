@@ -108,9 +108,11 @@ reasoning behind each in more depth.
 - **The redundant `ServiceController.sync()` call sites are deliberate.** Karoo OS may bind the
   extension late, or only once the data field is first shown, so every path that can want the link
   up calls `sync()`. Don't remove one because it looks duplicated.
-- **Scan mode stays `SCAN_MODE_BALANCED`, with no user-facing battery/latency setting.** A
-  Performance/Battery-Saver toggle was implemented and then removed — riders have no way to judge
-  that tradeoff. Please don't reintroduce one without asking first.
+- **Scan mode stays `SCAN_MODE_LOW_LATENCY`, with no user-facing battery/latency setting.**
+  Duty-cycled scanning and scan-result batching were tried for battery life and reverted in
+  1.6.3: on real rides the partner dropped out for 15–30 s at a time. A Performance/Battery-Saver
+  toggle was also implemented and removed — riders have no way to judge that tradeoff. Please
+  don't reintroduce either without asking first.
 - **Alerts go through karoo-ext** (`PlayBeepPattern` via `KarooSystemService`); standard Android
   audio does not reach the Karoo buzzer. The in-ride field is RemoteViews-only, hence Glance.
 - **The extension id `partnerride`** must stay in sync across `PartnerRideExtension`,

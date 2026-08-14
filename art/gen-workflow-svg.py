@@ -182,7 +182,7 @@ add(f'<g>{fade(10.6, P2[1])}'
     f'{txt(786, 423, "no server, no cloud", 10.5, MUTED)}'
     f'</g>')
 
-_adv = ("advertise ~250 ms · scan duty-cycled, accepted packets land every 2–3 s · "
+_adv = ("advertise ~100 ms · scan continuously, accepted packets land ~1x/s · "
         "manufacturer ID 0xFFFF · no pairing, no connection, no ACK")
 add(f'<g>{fade(10.2, P2[1])}{txt(500, 452, _adv, 11, MUTED, anchor="middle")}</g>')
 
@@ -311,7 +311,7 @@ add(txt(500, PY + 108, "zone colors (m)", 9, FAINT, anchor="middle"))
 # ---------------------------------------------------------------- step legend
 steps = [
     ("1", "GPS FIX", ["each device takes its own 1 Hz fix,", "stamped with satellite UTC time"], P1),
-    ("2", "BROADCAST", ["19-byte BLE advertisement, ~250 ms,", "no pairing, no ACK — both ways"], P2),
+    ("2", "BROADCAST", ["19-byte BLE advertisement, ~100 ms,", "no pairing, no ACK — both ways"], P2),
     ("3", "VALIDATE + ALIGN", ["drop anything malformed, then dead-", "reckon the older fix to T_eval"], P3),
     ("4", "GAP", ["haversine between the aligned points,", "signed by own heading → data field"], P4),
 ]

@@ -122,10 +122,13 @@ shown). Don't remove one of these triggers because it "looks duplicated".
   starts are rate-limited in `startScanIfAllowed` (Android blocks >5 starts per 30 s).
 - All BLE state mutation is confined to the `partnerride-link` handler thread — BLE callbacks and
   `onDestroy` post onto it rather than writing directly. Nothing enforces this at compile time.
-- Scan mode is hardcoded to `SCAN_MODE_BALANCED` (duty-cycled) — there is deliberately no
-  user-facing battery/latency setting. A Performance/Battery-Saver toggle was tried and then
-  removed (see git history) because riders have no way to judge that tradeoff; don't reintroduce
-  one without being asked.
+- Scan mode is hardcoded to `SCAN_MODE_LOW_LATENCY` (continuous), with no scan-result batching
+  and a ~100 ms advertising interval. Duty-cycled `SCAN_MODE_BALANCED` + `setReportDelay(2 s)` +
+  ~250 ms advertising shipped in 1.5.0–1.6.2 to save battery and lost the partner for 15–30 s at a
+  time on real rides; 1.6.3 reverted all three. Don't trade latency for battery here again.
+  There is also deliberately no user-facing battery/latency setting — a Performance/Battery-Saver
+  toggle was tried and removed because riders have no way to judge that tradeoff; don't
+  reintroduce one without being asked.
 - Alerts/beeps go through karoo-ext (`PlayBeepPattern` via `KarooSystemService`) — standard
   Android audio does not route to the Karoo buzzer. In-ride field UI is RemoteViews-only (Glance).
 - Extension id `partnerride` (no dots) must match in `PartnerRideExtension`, `extension_info.xml`,

@@ -129,7 +129,28 @@ class GapEngineTest {
     }
 
     @Test
-    fun `default smoothing window is 1 - effectively disabled`() {
+    fun `default smoothing window is 3`() {
+        val engine = GapEngine()
+        rideNorth(engine, 4)
+        val own = engine.latestOwnFix()!!
+
+        val gaps = mutableListOf<GapResult>()
+        for (i in 1..4) {
+            engine.onOwnFix(GpsFix(own.timeMs + i * 1000L, own.latDeg + i * latStep, 15.0))
+            val latest = engine.latestOwnFix()!!
+            val result = engine.onPartnerPacket(
+                PartnerPacket(timeMod(latest.timeMs), latest.latDeg + i * latStep, 15.0),
+                nowElapsedMs = i * 1_000L,
+            )
+            gaps += result!!
+        }
+
+        // Averaging the last three (not two, not four) is what the default has to mean.
+        assertEquals(gaps.takeLast(3).map { it.rawGapMeters }.average(), gaps.last().smoothedGapMeters, 0.5)
+    }
+
+    @Test
+    fun `the first packet is displayed raw, with nothing to average it against`() {
         val engine = GapEngine()
         rideNorth(engine, 2)
         val own = engine.latestOwnFix()!!

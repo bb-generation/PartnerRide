@@ -514,15 +514,16 @@ class PartnerLinkService : Service() {
                 SystemClock.elapsedRealtime() >= advertisingRetryAfterMs
             ) {
                 advertisingStartPending = true
-                // Legacy advertisement (fits ~24 usable payload bytes), ~250 ms interval, max TX
-                // power. Own GPS fixes only change ~1x/s, so INTERVAL_LOW's ~100 ms (10 TX/s) was
-                // pure redundancy; ~250 ms (4 TX/s) still gives a duty-cycled scanner several
-                // chances to catch each fix while cutting advertising-side radio time ~4x.
+                // Legacy advertisement (fits ~24 usable payload bytes), ~100 ms interval, max TX
+                // power. The redundancy is the point: each fix is retransmitted ~10x, so the
+                // receiver still catches it through the packet loss of a moving bike-to-bike link.
+                // ~250 ms (INTERVAL_MEDIUM) was tried to save battery and made the link visibly
+                // worse in the field — don't slow this down again.
                 val params = AdvertisingSetParameters.Builder()
                     .setLegacyMode(true)
                     .setConnectable(false)
                     .setScannable(false)
-                    .setInterval(AdvertisingSetParameters.INTERVAL_MEDIUM)
+                    .setInterval(AdvertisingSetParameters.INTERVAL_LOW)
                     .setTxPowerLevel(AdvertisingSetParameters.TX_POWER_HIGH)
                     .build()
                 adapter.bluetoothLeAdvertiser?.startAdvertisingSet(
@@ -557,16 +558,15 @@ class PartnerLinkService : Service() {
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            // Fires per-advertisement when batching is off/unsupported. Callbacks arrive on the
-            // main thread; do all work on the link thread.
+            // The normal path: we scan with no report delay, so every match arrives here.
+            // Callbacks arrive on the main thread; do all work on the link thread.
             handler.post { decodePacket(result)?.let(::handlePartnerPacket) }
         }
 
         override fun onBatchScanResults(results: MutableList<ScanResult>) {
-            // Fires instead of onScanResult when SCAN_REPORT_DELAY_MS batching is active: the
-            // controller buffers matches on its own and wakes the AP once per delay window
-            // instead of once per advertisement, cutting CPU/Binder wakeups without dropping any
-            // packets (handleScanResult's replay guard still de-dupes retransmissions).
+            // Not expected with setReportDelay(0), but a controller that hands back a batch anyway
+            // must not have its packets dropped on the floor. Kept as a safety net only —
+            // deliberately no setReportDelay: batching costs a delay window of latency.
             val batch = results.toList()
             handler.post {
                 // Sort before dispatching: the replay guard accepts only strictly-newer fix
@@ -623,18 +623,20 @@ class PartnerLinkService : Service() {
         } else {
             emptyList()
         }
-        // Duty-cycled scanning: the only mode. Trades a small, bounded chance of missing an
-        // individual advertisement (retransmissions during the ~1s GPS-fix window cover for it)
-        // for real receiver-radio battery savings; still lands updates roughly every 2-3 s.
-        val mode = ScanSettings.SCAN_MODE_BALANCED
-        // Batch scan results in the controller's own buffer and only wake the AP once per
-        // SCAN_REPORT_DELAY_MS, instead of once per advertisement. Falls back to immediate
-        // per-result delivery (onScanResult) on hardware without batching support.
-        val reportDelayMs = if (adapter.isOffloadedScanBatchingSupported) SCAN_REPORT_DELAY_MS else 0L
+        // Continuous scanning: the only mode, not user-selectable. Duty-cycled SCAN_MODE_BALANCED
+        // was tried to save battery and lost the partner for 15-30 s at a stretch on real rides —
+        // the field would go fresh, then sit there counting the age up. A bike-to-bike link is
+        // lossy enough without the receiver sleeping through most of it; battery is the cheaper
+        // thing to spend. Don't reintroduce a mode setting either: riders have no way to judge
+        // the tradeoff.
+        val mode = ScanSettings.SCAN_MODE_LOW_LATENCY
+        // No report delay: deliver every match immediately via onScanResult. Controller-side
+        // batching (setReportDelay) saves AP wakeups but adds a whole delay window of latency and,
+        // on this hardware, was part of the same signal-loss regression.
         val scanSettings = ScanSettings.Builder()
             .setScanMode(mode)
             .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
-            .setReportDelay(reportDelayMs)
+            .setReportDelay(0L)
             .build()
         val scanner = adapter.bluetoothLeScanner
         if (scanner == null) {
@@ -842,7 +844,6 @@ class PartnerLinkService : Service() {
         private const val BT_RESOURCE_ID = "partnerride-link"
         private const val LOCATION_INTERVAL_MS = 1_000L
         private const val SCAN_RESTART_INTERVAL_MS = 20L * 60L * 1_000L
-        private const val SCAN_REPORT_DELAY_MS = 2_000L
         private const val USE_HARDWARE_FILTER = true
 
         /** First retry delay after a failed scan start; doubles up to [SCAN_RETRY_MAX_MS]. */

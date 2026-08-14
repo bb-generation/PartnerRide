@@ -35,7 +35,10 @@ object Timestamps {
      * out of chronological order everything after the first accepted packet is discarded and the
      * gap is computed from a fix up to a whole batch window old.
      *
-     * A batch spans ~2 s, far less than the 65.536 s modulus, so the values are contiguous — but
+     * The link scans with no report delay, so this is a safety net for controllers that batch
+     * anyway rather than the normal path.
+     *
+     * A batch spans seconds, far less than the 65.536 s modulus, so the values are contiguous — but
      * they can straddle the wrap. A spread wider than the half-window means they do, and rotating
      * the space by half a modulus moves the discontinuity to the edges so a plain sort is correct.
      */
