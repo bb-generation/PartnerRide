@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import net.bbgen.karoo.partnerride.core.DebugFieldFrames
 import net.bbgen.karoo.partnerride.core.FieldBackground
 import net.bbgen.karoo.partnerride.core.FieldDisplay
 import net.bbgen.karoo.partnerride.core.FieldState
@@ -76,9 +77,18 @@ class PartnerRideDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) 
             // and because our emissions are >= 1 s apart none of them can now be dropped. Only
             // then is distinctUntilChanged safe: a filtered value is one the field is already
             // showing, not one that got thrown away.
-            combine(GapRepository.state, secondsTicker()) { state, _ -> state }
+            //
+            // Debug mode replaces the live state with a synthetic frame per FRAME_MS; the 1 s tick
+            // below samples each frame twice, so every frame gets its full 2 s on screen.
+            val debugMode = context.streamSettings().map { it.debugMode }.distinctUntilChanged()
+            combine(GapRepository.state, secondsTicker(), debugMode) { state, _, debug ->
+                state to debug
+            }
                 .throttle(VIEW_UPDATE_INTERVAL_MS)
-                .map { FieldState.build(it, SystemClock.elapsedRealtime()) }
+                .map { (state, debug) ->
+                    val now = SystemClock.elapsedRealtime()
+                    if (debug) DebugFieldFrames.displayAt(now) else FieldState.build(state, now)
+                }
                 .distinctUntilChanged()
                 .collect { display ->
                     val result = glance.compose(context, DpSize.Unspecified) { GapField(display, config) }

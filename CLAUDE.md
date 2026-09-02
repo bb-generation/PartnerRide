@@ -133,6 +133,10 @@ shown). Don't remove one of these triggers because it "looks duplicated".
   Android audio does not route to the Karoo buzzer. In-ride field UI is RemoteViews-only (Glance).
 - Extension id `partnerride` (no dots) must match in `PartnerRideExtension`, `extension_info.xml`,
   and each `DataTypeImpl`'s typeId must have a `<DataType>` entry there.
+- Debug mode (data field cycles every display state, `core/DebugFieldFrames`) is reached only by
+  tapping the settings-screen title 7 times. The indication-less `clickable` on that title and the
+  `if (settings.debugMode)` section that turns it back off are both deliberate — riders never need
+  this, and one stuck in debug mode has a useless field. Don't give it a visible entry point.
 - `PartnerRideSettings` is persisted as JSON with `ignoreUnknownKeys` — add fields with defaults
   only. Change it through `updateSettings {}` (read-modify-write inside the DataStore
   transaction), never by saving a separately-collected snapshot.

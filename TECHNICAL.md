@@ -236,6 +236,32 @@ distinction meaningful, each service start resets the session in `GapRepository`
 packet/fix ages, smoothed gap), so a new session begins at the gray `NO SIGNAL`, never at a
 stale red one carried over from an earlier run.
 
+### 7.1 Debug mode
+
+The field is a single-line `Text` at a fixed size, so a string too wide for the ride-page slot
+truncates to `…` with nothing said about it — and most rows in the table above need two devices,
+a lost signal or a revoked permission to reach. Debug mode makes the field cycle every row, one
+frame every 2 s (18 frames, a 36 s loop), so the truncating one can be found on one device in the
+slot where it actually happens.
+
+`core/DebugFieldFrames` holds the frames as synthetic `PartnerRideState` values and feeds them
+through the real `FieldState.build` rather than emitting hardcoded strings, so what debug mode
+shows is by construction what the field shows. `DebugFieldFramesTest` pins each frame's text,
+background and font scale, and fails if a `FieldState` branch loses its frame.
+
+Two limits of the format the frames make explicit:
+
+- The shortest age the `~150 m · 5 s` form can show is **5 s**, not 1 s: below `FRESH_MS` the
+  fresh-gap row wins, so `~150 m · 1 s` is unreachable on a real ride.
+- The longest is **60 s**, capped implicitly by the contact-lost row firing first.
+
+Activation is a hidden gesture — 7 taps on the title of the settings screen, each within 3 s of
+the last (`screens/MainScreen`). There is deliberately no visible control for it: riders never
+need it, and a rider stuck in debug mode has a useless data field. Taps only ever switch it *on*;
+a section that appears only while `debugMode` is set owns switching it off, so it cannot be
+entered without an exit. The flag lives in `PartnerRideSettings`, so the running data field picks
+it up through `streamSettings()` without being re-added to the page.
+
 ## 8. App architecture
 
 Single process, three layers, bridged by one `StateFlow`:

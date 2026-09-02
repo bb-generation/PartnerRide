@@ -2,6 +2,8 @@ package net.bbgen.karoo.partnerride.screens
 
 import android.os.SystemClock
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +67,9 @@ fun MainScreen(
         thresholdText = stored.alertThresholdMeters.toString()
     }
 
+    var debugTaps by remember { mutableIntStateOf(0) }
+    var lastDebugTapMs by remember { mutableLongStateOf(0L) }
+
     // 1 Hz tick so the "x s ago" ages count up while the screen is open.
     var now by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
     LaunchedEffect(Unit) {
@@ -92,7 +98,27 @@ fun MainScreen(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall)
+        // Hidden debug-mode gesture: DEBUG_TAP_COUNT taps on the title, each within
+        // DEBUG_TAP_WINDOW_MS of the last. No ripple and no indication — riders never need this,
+        // and a stray tap during a ride must not accumulate towards it, hence the window.
+        Text(
+            stringResource(R.string.app_name),
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                val tapNow = SystemClock.elapsedRealtime()
+                debugTaps = if (tapNow - lastDebugTapMs > DEBUG_TAP_WINDOW_MS) 1 else debugTaps + 1
+                lastDebugTapMs = tapNow
+                if (debugTaps >= DEBUG_TAP_COUNT) {
+                    debugTaps = 0
+                    // Taps only ever switch it on; the section that appears below owns turning it
+                    // off, so there is no way to end up in debug mode with no way out.
+                    update { s -> s.copy(debugMode = true) }
+                }
+            },
+        )
 
         // ---------------- enable ----------------
         LabeledSwitch(
@@ -191,8 +217,30 @@ fun MainScreen(
         linkState.statusMessage?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
         }
+
+        // ---------------- debug ----------------
+        // Conditional, so a normal rider never sees it; unconditional once on, so it is always
+        // possible to switch back off.
+        if (settings.debugMode) {
+            HorizontalDivider()
+            Text(stringResource(R.string.debug_title), style = MaterialTheme.typography.titleMedium)
+            LabeledSwitch(
+                label = stringResource(R.string.setting_debug_mode),
+                checked = settings.debugMode,
+                onCheckedChange = { on -> update { s -> s.copy(debugMode = on) } },
+            )
+            Text(
+                stringResource(R.string.debug_help),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     }
 }
+
+/** Taps on the title that switch debug mode on, and the gap after which the count restarts. */
+private const val DEBUG_TAP_COUNT = 7
+private const val DEBUG_TAP_WINDOW_MS = 3_000L
 
 @Composable
 private fun LabeledSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
