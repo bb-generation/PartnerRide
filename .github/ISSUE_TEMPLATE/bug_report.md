@@ -53,6 +53,5 @@ Settings -> PartnerRide, or the app's main screen.
 
 <!--
 Riding conditions if they seem relevant (distance between riders, terrain, whether
-one of you was in a group), and a logcat excerpt if you have one:
-adb logcat -d | Select-String partnerride
+one of you was in a group).
 -->
