@@ -263,9 +263,6 @@ a section that appears only while `debugMode` is set owns switching it off, so i
 entered without an exit. The flag lives in `PartnerRideSettings`, so the running data field picks
 it up through `streamSettings()` without being re-added to the page.
 
-To try it, install a build that carries it: the CI `debug-apk` artifact (§11.3) on a spare device,
-or a locally built release APK (§11.2) on your own.
-
 ## 8. App architecture
 
 Single process, three layers, bridged by one `StateFlow`:
