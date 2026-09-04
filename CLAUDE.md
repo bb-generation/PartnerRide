@@ -62,7 +62,10 @@ Bump `versionCode`/`versionName`, tag `vX.Y.Z`, publish a GitHub Release. That t
 - The workflow fails if the tag and `versionName` disagree, so bump before tagging.
 - Both devices must run the same version, so there is no partial-rollout path — a release is an
   all-or-nothing swap for both riders.
-- `.github/workflows/ci.yml` runs tests, lint and a debug build on every push and PR.
+- `.github/workflows/ci.yml` runs tests, lint and a debug build on pushes to `master` and on
+  pull requests — a push to a feature branch triggers nothing until a PR exists for it. It
+  uploads the debug APK as the `debug-apk` artifact; TECHNICAL.md §11.3 covers why that APK
+  cannot simply be installed over a real-key build.
 
 ## Update discovery (currently off)
 

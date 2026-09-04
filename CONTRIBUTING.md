@@ -4,8 +4,8 @@ Thanks for looking. PartnerRide is a small, single-maintainer project with an un
 the thing it does — a BLE link between two Karoos — **cannot be exercised without two physical
 devices**. That shapes most of what follows.
 
-Start with [README.md](README.md) for what the app does and how to build it, and
-[TECHNICAL.md](TECHNICAL.md) for the protocol, the time model and the gap algorithm.
+Start with [README.md](README.md) for what the app does, and [TECHNICAL.md](TECHNICAL.md) for
+how to build it plus the protocol, the time model and the gap algorithm.
 [CLAUDE.md](CLAUDE.md) carries the repo conventions.
 
 ## Before you write code
@@ -37,7 +37,7 @@ Do not paste your couple code into a public issue. It is not a security boundary
 ## Building and testing
 
 Build setup — JDK 17 and a GitHub Packages token for the `karoo-ext` dependency — is in
-README.md § Build. The token trips up most first-time builds: `karoo-ext` is public, but GitHub
+TECHNICAL.md §11. The token trips up most first-time builds: `karoo-ext` is public, but GitHub
 Packages still requires authentication, so a `local.properties` with `gpr.user`/`gpr.key` is not
 optional.
 

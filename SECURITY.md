@@ -69,8 +69,8 @@ them will be closed as by-design — but see [The path to an encrypted v2](#the-
   it displays. This follows directly from the two points above.
 - **The tag is static and linkable.** It does not change during a ride (or between rides, while
   the code stays the same), so an observer can correlate sightings of the same pair over time.
-- **The displayed gap is safety-relevant only as an estimate.** GPS gives an error floor of
-  roughly 5–10 m and the distance is straight-line, not along the road (README § Known
+- **The displayed gap is safety-relevant only as an estimate.** GPS leaves an error floor of a
+  couple of meters and the distance is straight-line, not along the road (README § Known
   limitations). Do not treat it as ground truth.
 
 The intended trust model is the one README.md states: comparable to an uncoded ANT+ or Bluetooth
