@@ -148,11 +148,9 @@ list, both devices at a time:
 the Karoo launcher, then look again — extensions only register with Karoo OS after their first
 launch.
 
-**The number never drops to zero, even riding wheel to wheel:** that's expected. Two Karoo 3s
-about 25 cm apart typically show 2–3 m. The two devices see the same satellites at the same
-moment, so most of their GPS error is identical and cancels out when the gap is computed — but a
-couple of meters of it remains. Read anything in that range as "together", not as an exact
-distance.
+**The number never drops to zero, even riding right behind each other:** that's expected. Two
+bikes wheel to wheel, a Karoo 3 on each, typically show 2–3 m. Read a single-digit number as
+"together", not as an exact distance.
 
 ## About the two Android permission pop-ups
 
@@ -175,10 +173,9 @@ Both dialogs appear **once per install**; after granting, they never return.
 - **Range is roughly 50–150 m** in the open, less with bodies or terrain in the way. Beyond that
   the field shows the last known gap for 60 s, then `NO SIGNAL`. The link recovers by itself as
   soon as you are back in range — there is nothing to reconnect and nothing that can get stuck.
-- **A couple of meters of GPS noise:** riding wheel to wheel, about 25 cm apart, two Karoo 3s
-  typically read 2–3 m rather than 0. Most of each device's GPS error is common to both and
-  cancels out, so the floor is far below the ±3–5 m a single receiver has, but it is not zero.
-  Treat single-digit numbers as "together", not as centimeter truth.
+- **The gap is accurate to a couple of meters.** Two bikes riding wheel to wheel, a Karoo 3 on
+  each, typically show 2–3 m rather than 0. Treat single-digit numbers as "together", not as
+  centimeter truth.
 - **Straight-line distance:** on switchbacks and hairpins the distance along the road between
   you can be much longer than the displayed straight-line gap.
 - The Bluetooth signal is unencrypted — see [Privacy](#privacy) above.
