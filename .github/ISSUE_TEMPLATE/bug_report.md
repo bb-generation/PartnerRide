@@ -7,9 +7,6 @@ assignees: ''
 ---
 
 <!--
-Please don't paste your couple code. It isn't a security boundary (see SECURITY.md),
-but there's no reason to publish it either.
-
 For an undisclosed security issue, use the Security tab -> "Report a vulnerability"
 instead of this form.
 -->
@@ -35,16 +32,6 @@ Settings -> PartnerRide, or the app's main screen.
 
 - Device A:
 - Device B:
-
-## What the data field showed
-
-<!--
-One of: NO SIGNAL, NO GPS, NO BT, NO CODE, NO PERM, OFF, or a live value.
-The field always names the *first* problem to fix, so the token says where to look:
-README.md section "Data field states" explains each one, TECHNICAL.md section 7 gives
-the precedence order. If it was a live value that looked wrong, say what it read and
-roughly how far apart you actually were.
--->
 
 ## Sanity checks
 
