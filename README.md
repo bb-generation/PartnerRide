@@ -22,7 +22,7 @@ talk. Then the rider behind gets dropped:
 
 - only the rider in front got past the car or the roundabout,
 - the traffic light turns red right after the first one crosses,
-- a chain comes off, a bottle drops, a tyre goes soft.
+- a chain comes off, a bottle drops, a tire goes soft.
 
 The rider in front usually notices far too late — often only at the next junction, several
 minutes and a couple of kilometers later. Then come the phone calls, the turning around, and the
@@ -32,9 +32,6 @@ With PartnerRide, the number on the ride screen starts growing the moment it hap
 40 m, 80 m, and the background turns yellow, then red. The rider in front knows within seconds
 and can look back, ease off, soft-pedal, stop, or ride back — while the two of you are still
 within sight of each other.
-
-It works the other way round just as well: as long as the number stays small and green, your
-partner is right there behind you, and you can stop checking over your shoulder.
 
 ## How it works
 
@@ -151,9 +148,11 @@ list, both devices at a time:
 the Karoo launcher, then look again — extensions only register with Karoo OS after their first
 launch.
 
-**The number looks off by a few meters:** that's expected. Each Karoo's GPS is accurate to about
-3–5 m, so the gap between two of them has an error floor of roughly 5–10 m. Treat a small gap as
-"together", not as an exact measurement.
+**The number never drops to zero, even riding wheel to wheel:** that's expected. Two Karoo 3s
+about 25 cm apart typically show 2–3 m. The two devices see the same satellites at the same
+moment, so most of their GPS error is identical and cancels out when the gap is computed — but a
+couple of meters of it remains. Read anything in that range as "together", not as an exact
+distance.
 
 ## About the two Android permission pop-ups
 
@@ -176,8 +175,10 @@ Both dialogs appear **once per install**; after granting, they never return.
 - **Range is roughly 50–150 m** in the open, less with bodies or terrain in the way. Beyond that
   the field shows the last known gap for 60 s, then `NO SIGNAL`. The link recovers by itself as
   soon as you are back in range — there is nothing to reconnect and nothing that can get stuck.
-- **GPS accuracy floor:** each device is accurate to ±3–5 m, so the displayed gap has an error
-  floor of roughly 5–10 m. Treat small gaps as "together", not as centimeter truth.
+- **A couple of meters of GPS noise:** riding wheel to wheel, about 25 cm apart, two Karoo 3s
+  typically read 2–3 m rather than 0. Most of each device's GPS error is common to both and
+  cancels out, so the floor is far below the ±3–5 m a single receiver has, but it is not zero.
+  Treat single-digit numbers as "together", not as centimeter truth.
 - **Straight-line distance:** on switchbacks and hairpins the distance along the road between
   you can be much longer than the displayed straight-line gap.
 - The Bluetooth signal is unencrypted — see [Privacy](#privacy) above.
