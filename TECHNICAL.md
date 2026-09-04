@@ -1,7 +1,8 @@
 # PartnerRide — Technical Documentation
 
-Internals for developers: the BLE protocol, the wire format, and the gap-computation pipeline.
-For build/install/usage see [README.md](README.md); for repo conventions see [CLAUDE.md](CLAUDE.md).
+Internals for developers: the BLE protocol, the wire format, the gap-computation pipeline, and
+how to build and install the app (§11–§12). For what the extension does and how to use it on a
+ride see [README.md](README.md); for repo conventions see [CLAUDE.md](CLAUDE.md).
 
 ## 1. System overview
 
@@ -290,7 +291,7 @@ Consequences:
   and asserting the flag risks the OS filtering beacon-like advertisements out of scan results —
   exactly what our manufacturer-data packets look like.
 - For prompt-free installs (e.g. test devices), the permissions can be pre-granted over adb with
-  `pm grant` (see README).
+  `pm grant` (§11.2).
 - A degraded mode using karoo-ext location (no prompts, worse accuracy) is architecturally
   possible — the `GapEngine` fallback path (§6.2) would carry it — but is intentionally not
   implemented: it silently violates the accuracy contract the protocol is built around.
@@ -316,3 +317,70 @@ Consequences:
 | GPS update interval | 1 s | `PartnerLinkService.LOCATION_INTERVAL_MS` |
 | Scan restart period | 20 min | `PartnerLinkService.SCAN_RESTART_INTERVAL_MS` |
 | Scan retry backoff | 5 s, doubling to 60 s | `PartnerLinkService.SCAN_RETRY_BASE_MS` / `_MAX_MS` |
+
+## 11. Building, signing and installing
+
+Requirements: JDK 17, and GitHub Packages credentials for the `karoo-ext` dependency (it is
+public, but GitHub Packages still requires authentication):
+
+1. Create a GitHub personal access token (classic) with only the `read:packages` scope
+   (github.com → Settings → Developer settings → Personal access tokens).
+2. Create `local.properties` in the project root (never commit it):
+
+   ```properties
+   gpr.user=<your github username>
+   gpr.key=<the token>
+   ```
+
+3. Build:
+
+   ```bash
+   ./gradlew assembleRelease   # APK: app/build/outputs/apk/release/app-release.apk
+   ./gradlew test              # unit tests (packet codec, timestamps, gap engine, ...)
+   ./gradlew lint              # Android lint
+   ```
+
+### 11.1 Release signing
+
+Official releases (the APK attached to each [GitHub Release](../../releases)) are signed with a
+real, stable key by CI, so installing a newer release over an older one just updates the app in
+place — settings, including the couple code, are preserved. A local `./gradlew assembleRelease`
+without that signing key configured falls back to **debug-signing** instead, which is a different
+key: a debug-signed build cannot be installed over an official release (or vice versa) without
+uninstalling first, which wipes the settings. That is fine for development, but **never
+distribute a debug-signed APK as an update to someone already running an official release** —
+point them at the GitHub Releases page instead. Under CI the same fallback is a hard failure
+(`verifyReleaseSigning`) rather than a silent debug-sign.
+
+### 11.2 Installing over adb
+
+The user-facing route (Hammerhead Companion app, no cables) is in
+[README.md](README.md) § Install on the Karoo. On a development device, adb is faster:
+
+1. Enable Developer Options on the Karoo (Settings → About → tap Build Number repeatedly) and
+   turn on USB debugging.
+2. `adb install -r app-release.apk`
+3. **Open the app once on the device** — extensions register with Karoo OS only after the first
+   launch.
+
+Both devices must run the same APK version; the packet format is validated strictly (§4), so
+mismatched versions never see each other.
+
+For prompt-free installs, the two runtime permissions (§9) can be pre-granted:
+
+```
+adb shell pm grant net.bbgen.karoo.partnerride android.permission.ACCESS_FINE_LOCATION
+adb shell pm grant net.bbgen.karoo.partnerride android.permission.BLUETOOTH_SCAN
+adb shell pm grant net.bbgen.karoo.partnerride android.permission.BLUETOOTH_ADVERTISE
+```
+
+## 12. Project layout
+
+- `core/` — pure logic, fully unit-tested: packet codec, couple code, timestamp
+  reconstruction/replay guard, GPS fix ring buffer, gap engine (dead reckoning with the
+  timestamp-matching fallback, sign, smoothing), zone hysteresis, data field display states.
+- `service/PartnerLinkService.kt` — foreground service: BLE advertise + scan (with the 20-minute
+  scan restart that dodges Android's 30-minute scan demotion), GPS via `LocationManager`
+  (satellite time for the packet timestamps), wakelock, gap alert.
+- `extension/` — the karoo-ext extension service and the Glance-rendered data field.
+- `screens/MainScreen.kt` — settings UI (enable, couple code, alert, status).
