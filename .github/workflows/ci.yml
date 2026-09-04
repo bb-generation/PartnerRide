@@ -44,6 +44,20 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug
 
+      # Debug-signed, and the debug build shares its applicationId with the release one, so
+      # this APK cannot be installed over a real-key build: INSTALL_FAILED_UPDATE_INCOMPATIBLE,
+      # and the uninstall that clears it takes the couple code and the rest of the settings with
+      # it. It is for trying a branch on a spare device, not for upgrading a rider's Karoo.
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          # error, not ignore: the build step above succeeded, so a missing APK here means the
+          # output path moved and the artifact would be silently empty.
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload test and lint reports
         if: always()
         uses: actions/upload-artifact@v7

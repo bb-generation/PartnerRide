@@ -374,6 +374,23 @@ adb shell pm grant net.bbgen.karoo.partnerride android.permission.BLUETOOTH_SCAN
 adb shell pm grant net.bbgen.karoo.partnerride android.permission.BLUETOOTH_ADVERTISE
 ```
 
+### 11.3 The debug APK from CI
+
+`.github/workflows/ci.yml` runs on pushes to `master` and on pull requests — **not** on a push to
+a feature branch, so a branch gets no CI at all until a PR is open for it. Each run uploads the
+`assembleDebug` output as the `debug-apk` artifact (14-day retention), downloadable from the run's
+page under the Actions tab. That is the quickest way to try a branch without a local Android
+toolchain.
+
+It is **debug-signed** and shares the release build's `applicationId`, so it cannot be installed
+over a real-key build: Android rejects it with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, and the
+uninstall needed to clear that takes the couple code and the rest of `PartnerRideSettings` with
+it. Use it on a spare device, or accept re-entering the couple code. The debug keystore is
+generated on the runner rather than committed, so two runs may not be signature-compatible with
+each other either.
+
+To upgrade a rider's Karoo in place, build the release APK locally with the real key (§11.1).
+
 ## 12. Project layout
 
 - `core/` — pure logic, fully unit-tested: packet codec, couple code, timestamp
