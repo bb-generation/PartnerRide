@@ -1,7 +1,7 @@
 package net.bbgen.karoo.partnerride.core
 
 /**
- * Debug mode's frame list: every display state the data field can render, in a fixed order, one
+ * Demo mode's frame list: every display state the data field can render, in a fixed order, one
  * every [FRAME_MS].
  *
  * The field truncates silently — it is a single-line Text at a fixed font size, so a string
@@ -10,10 +10,10 @@ package net.bbgen.karoo.partnerride.core
  * reproducible on a single device, in the actual page slot, in seconds.
  *
  * Frames are synthetic [PartnerRideState] values pushed through the real [FieldState.build] rather
- * than a parallel list of hardcoded strings: what debug mode shows is then by construction what the
+ * than a parallel list of hardcoded strings: what demo mode shows is then by construction what the
  * field shows, and it cannot drift when the state machine changes.
  */
-object DebugFieldFrames {
+object DemoFieldFrames {
     /** How long each frame stays up. A multiple of the field's 1 s update tick. */
     const val FRAME_MS = 2_000L
 
@@ -26,7 +26,7 @@ object DebugFieldFrames {
     /**
      * Ordered so the fresh gaps (widest strings at full font size) come first and the word labels
      * last. Covers every branch of [FieldState.build] except the page-editor preview, which is not
-     * part of the live path; `DebugFieldFramesTest` fails if a branch loses its frame.
+     * part of the live path; `DemoFieldFramesTest` fails if a branch loses its frame.
      */
     val frames: List<PartnerRideState> = listOf(
         gap(5.0, ahead = true, zone = GapZone.GREEN),
@@ -60,7 +60,7 @@ object DebugFieldFrames {
     /** Which frame a monotonic timestamp falls in; wraps forever. */
     fun frameIndex(elapsedMs: Long): Int = ((elapsedMs / FRAME_MS) % frames.size).toInt()
 
-    /** What the field shows at [elapsedMs] while debug mode is on. */
+    /** What the field shows at [elapsedMs] while demo mode is on. */
     fun displayAt(elapsedMs: Long): FieldDisplay =
         FieldState.build(frames[frameIndex(elapsedMs)], NOW)
 

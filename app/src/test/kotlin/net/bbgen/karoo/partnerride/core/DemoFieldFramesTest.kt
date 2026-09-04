@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class DebugFieldFramesTest {
+class DemoFieldFramesTest {
 
     /** What each frame must render, in cycle order. This table is the feature's specification. */
     private val expected = listOf(
@@ -28,12 +28,12 @@ class DebugFieldFramesTest {
         Triple("OFF", FieldBackground.GRAY, 1f),
     )
 
-    private fun rendered(state: PartnerRideState) = FieldState.build(state, DebugFieldFrames.NOW)
+    private fun rendered(state: PartnerRideState) = FieldState.build(state, DemoFieldFrames.NOW)
 
     @Test
     fun `every frame renders its expected text, background and scale`() {
-        assertEquals(expected.size, DebugFieldFrames.frames.size)
-        DebugFieldFrames.frames.forEachIndexed { i, state ->
+        assertEquals(expected.size, DemoFieldFrames.frames.size)
+        DemoFieldFrames.frames.forEachIndexed { i, state ->
             val display = rendered(state)
             val (text, background, scale) = expected[i]
             assertEquals("frame $i text", text, display.text)
@@ -46,7 +46,7 @@ class DebugFieldFramesTest {
     fun `no frame repeats its neighbour`() {
         // distinctUntilChanged sits between the frame source and the field, so two identical
         // neighbours would silently merge into one 4 s frame instead of two 2 s ones.
-        DebugFieldFrames.frames.map { rendered(it) }.zipWithNext { a, b ->
+        DemoFieldFrames.frames.map { rendered(it) }.zipWithNext { a, b ->
             assertTrue("adjacent frames render identically: $a", a != b)
         }
     }
@@ -54,9 +54,9 @@ class DebugFieldFramesTest {
     @Test
     fun `the frames cover every display state FieldState can produce`() {
         // A new branch in FieldState.build without a frame for it defeats the whole point of
-        // debug mode, so pin the covered set here rather than trusting the list above to be kept
+        // demo mode, so pin the covered set here rather than trusting the list above to be kept
         // up to date by hand.
-        val covered = DebugFieldFrames.frames.map { rendered(it) }.toSet()
+        val covered = DemoFieldFrames.frames.map { rendered(it) }.toSet()
         val everyState = listOf(
             PartnerRideState(missingPermissions = listOf("x")),
             PartnerRideState(serviceRunning = false),
@@ -75,28 +75,28 @@ class DebugFieldFramesTest {
                     it.background == display.background &&
                     it.fontScale == display.fontScale
             }
-            assertTrue("no debug frame covers $display", match)
+            assertTrue("no demo frame covers $display", match)
         }
     }
 
     @Test
     fun `frameIndex advances once per FRAME_MS and wraps`() {
-        assertEquals(0, DebugFieldFrames.frameIndex(0L))
-        assertEquals(0, DebugFieldFrames.frameIndex(DebugFieldFrames.FRAME_MS - 1))
-        assertEquals(1, DebugFieldFrames.frameIndex(DebugFieldFrames.FRAME_MS))
-        val cycleMs = DebugFieldFrames.FRAME_MS * DebugFieldFrames.frames.size
-        assertEquals(0, DebugFieldFrames.frameIndex(cycleMs))
-        assertEquals(1, DebugFieldFrames.frameIndex(cycleMs + DebugFieldFrames.FRAME_MS))
+        assertEquals(0, DemoFieldFrames.frameIndex(0L))
+        assertEquals(0, DemoFieldFrames.frameIndex(DemoFieldFrames.FRAME_MS - 1))
+        assertEquals(1, DemoFieldFrames.frameIndex(DemoFieldFrames.FRAME_MS))
+        val cycleMs = DemoFieldFrames.FRAME_MS * DemoFieldFrames.frames.size
+        assertEquals(0, DemoFieldFrames.frameIndex(cycleMs))
+        assertEquals(1, DemoFieldFrames.frameIndex(cycleMs + DemoFieldFrames.FRAME_MS))
         assertEquals(
-            DebugFieldFrames.frames.size - 1,
-            DebugFieldFrames.frameIndex(cycleMs - 1),
+            DemoFieldFrames.frames.size - 1,
+            DemoFieldFrames.frameIndex(cycleMs - 1),
         )
     }
 
     @Test
     fun `displayAt walks the frames in order`() {
-        DebugFieldFrames.frames.indices.forEach { i ->
-            val display = DebugFieldFrames.displayAt(i * DebugFieldFrames.FRAME_MS)
+        DemoFieldFrames.frames.indices.forEach { i ->
+            val display = DemoFieldFrames.displayAt(i * DemoFieldFrames.FRAME_MS)
             assertEquals(expected[i].first, display.text)
         }
     }
@@ -117,8 +117,8 @@ class DebugFieldFramesTest {
     private fun healthy(packetAgeMs: Long = 1_000L) = PartnerRideState(
         serviceRunning = true,
         bluetoothReady = true,
-        lastOwnFixElapsedMs = DebugFieldFrames.NOW,
-        lastPacketElapsedMs = DebugFieldFrames.NOW - packetAgeMs,
+        lastOwnFixElapsedMs = DemoFieldFrames.NOW,
+        lastPacketElapsedMs = DemoFieldFrames.NOW - packetAgeMs,
         smoothedGapMeters = 12.0,
         partnerAhead = true,
         zone = GapZone.GREEN,

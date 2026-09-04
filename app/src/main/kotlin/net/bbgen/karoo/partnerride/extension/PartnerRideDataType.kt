@@ -31,7 +31,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import net.bbgen.karoo.partnerride.core.DebugFieldFrames
+import net.bbgen.karoo.partnerride.core.DemoFieldFrames
 import net.bbgen.karoo.partnerride.core.FieldBackground
 import net.bbgen.karoo.partnerride.core.FieldDisplay
 import net.bbgen.karoo.partnerride.core.FieldState
@@ -78,16 +78,16 @@ class PartnerRideDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) 
             // then is distinctUntilChanged safe: a filtered value is one the field is already
             // showing, not one that got thrown away.
             //
-            // Debug mode replaces the live state with a synthetic frame per FRAME_MS; the 1 s tick
+            // Demo mode replaces the live state with a synthetic frame per FRAME_MS; the 1 s tick
             // below samples each frame twice, so every frame gets its full 2 s on screen.
-            val debugMode = context.streamSettings().map { it.debugMode }.distinctUntilChanged()
-            combine(GapRepository.state, secondsTicker(), debugMode) { state, _, debug ->
-                state to debug
+            val demoMode = context.streamSettings().map { it.demoMode }.distinctUntilChanged()
+            combine(GapRepository.state, secondsTicker(), demoMode) { state, _, demo ->
+                state to demo
             }
                 .throttle(VIEW_UPDATE_INTERVAL_MS)
-                .map { (state, debug) ->
+                .map { (state, demo) ->
                     val now = SystemClock.elapsedRealtime()
-                    if (debug) DebugFieldFrames.displayAt(now) else FieldState.build(state, now)
+                    if (demo) DemoFieldFrames.displayAt(now) else FieldState.build(state, now)
                 }
                 .distinctUntilChanged()
                 .collect { display ->

@@ -20,7 +20,7 @@ data class PartnerRideSettings(
      * text that is too wide for a ride-page slot can be found on one device. Reachable only via
      * the hidden 7-tap gesture on the settings screen title.
      */
-    val debugMode: Boolean = false,
+    val demoMode: Boolean = false,
     // Add fields with defaults only — old persisted JSON must keep decoding. Removed fields are
     // fine too: ignoreUnknownKeys below means old JSON with a since-removed key (e.g. the former
     // "scanMode") just has that key ignored on decode.
