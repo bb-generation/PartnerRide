@@ -4,7 +4,7 @@
 
   autoSizeTextType="uniform" is the whole point of this file: the view measures the string
   against its own width and height and picks the largest size that fits, so the field cannot
-  truncate, and nothing outside the view has to know the slot's geometry (TECHNICAL.md §7.1).
+  truncate, and nothing outside the view has to know the slot's geometry (TECHNICAL.md §7.2).
 
   Autosizing needs concrete bounds, so both dimensions are match_parent (with wrap_content it is
   documented not to work). PartnerRideDataType sets the text, its color and the rounded

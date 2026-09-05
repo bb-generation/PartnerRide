@@ -135,15 +135,20 @@ shown). Don't remove one of these triggers because it "looks duplicated".
 - Alerts/beeps go through karoo-ext (`PlayBeepPattern` via `KarooSystemService`) — standard
   Android audio does not route to the Karoo buzzer. In-ride field UI is RemoteViews-only: a
   plain layout whose `TextView` autosizes its own text against the slot it was given, and whose
-  background is a rounded-rect drawable matching Karoo's own field corners (TECHNICAL.md §7.1,
-  §7.2). Don't set the field's text size from code — `setTextSize` is a no-op under autosizing —
+  background is a rounded-rect drawable matching Karoo's own field corners (TECHNICAL.md §7.2,
+  §7.3). Don't set the field's text size from code — `setTextSize` is a no-op under autosizing —
   and don't give it a flat background color, which squares off those corners.
+- A tap on the field leaves demo mode, or else toggles `enabled` (TECHNICAL.md §7.1). The field
+  runs in Karoo's process, so the only channel back is a `PendingIntent` — `FieldTapReceiver`
+  owns both it and the unexported receiver it fires. Re-attach it on every emission (each update
+  is a fresh `RemoteViews`, not a patch) and never in `config.preview`.
 - Extension id `partnerride` (no dots) must match in `PartnerRideExtension`, `extension_info.xml`,
   and each `DataTypeImpl`'s typeId must have a `<DataType>` entry there.
 - Demo mode (data field cycles every display state, `core/DemoFieldFrames`) is reached only by
-  tapping the settings-screen title 7 times. The indication-less `clickable` on that title and the
-  `if (settings.demoMode)` section that turns it back off are both deliberate — riders never need
-  this, and one stuck in demo mode has a useless field. Don't give it a visible entry point.
+  tapping the settings-screen title 7 times. The indication-less `clickable` on that title, the
+  `if (settings.demoMode)` section that turns it back off, and the field tap taking priority over
+  the enable toggle while it is on are all deliberate — riders never need this, and one stuck in
+  demo mode has a useless field. Don't give it a visible entry point.
 - `PartnerRideSettings` is persisted as JSON with `ignoreUnknownKeys` — add fields with defaults
   only. Change it through `updateSettings {}` (read-modify-write inside the DataStore
   transaction), never by saving a separately-collected snapshot.

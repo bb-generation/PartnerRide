@@ -69,6 +69,13 @@
             android:foregroundServiceType="location|connectedDevice"
             tools:targetApi="q" />
 
+        <!-- Tap on the ride data field. Unexported: the field's PendingIntent is created by
+             this app, so the broadcast is dispatched under our own identity even though Karoo's
+             process is what fires it. -->
+        <receiver
+            android:name=".service.FieldTapReceiver"
+            android:exported="false" />
+
         <!-- BOOT_COMPLETED is a protected broadcast: only the system can send it. -->
         <receiver
             android:name=".service.BootReceiver"

@@ -135,6 +135,12 @@ Gray states mean "not working, but nobody is being dropped"; red is reserved for
 for losing your partner mid-ride. The field sizes its text to whatever cell you put it in, so a
 half-width cell shows the same states in a smaller font rather than cutting them off.
 
+**Tap the field to switch PartnerRide off and on again** without leaving the ride page — the same
+switch as in the settings menu. It reads `OFF` while it is off; tap it again to bring the link
+back. Useful when you are riding without your partner, or on a stretch where you don't need the
+gap and would rather save battery — switching it off stops the Bluetooth broadcasting, the GPS
+and the alerts.
+
 ## Troubleshooting
 
 **The two of you never see each other** (`NO SIGNAL` on gray on both devices) — work down this
