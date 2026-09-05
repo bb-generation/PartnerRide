@@ -5,7 +5,7 @@ enum class FieldBackground { GREEN, YELLOW, RED, GRAY }
 
 /**
  * What the field shows: a string and a background. Deliberately no font size — the view sizes the
- * text to the page slot it was given (TECHNICAL.md §7.1), which no state can know here.
+ * text to the page slot it was given (TECHNICAL.md §7.2), which no state can know here.
  */
 data class FieldDisplay(
     val text: String,

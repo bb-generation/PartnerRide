@@ -115,7 +115,7 @@ reasoning behind each in more depth.
   don't reintroduce either without asking first.
 - **Alerts go through karoo-ext** (`PlayBeepPattern` via `KarooSystemService`); standard Android
   audio does not reach the Karoo buzzer. The in-ride field is RemoteViews-only — a layout from
-  `res/layout/`, with the `TextView` sizing its own text (TECHNICAL.md §7.1).
+  `res/layout/`, with the `TextView` sizing its own text (TECHNICAL.md §7.2).
 - **The extension id `partnerride`** must stay in sync across `PartnerRideExtension`,
   `extension_info.xml`, and every `DataTypeImpl`'s `typeId`.
 

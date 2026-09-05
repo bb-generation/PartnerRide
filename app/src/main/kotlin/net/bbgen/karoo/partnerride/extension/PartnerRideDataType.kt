@@ -24,6 +24,7 @@ import net.bbgen.karoo.partnerride.core.FieldDisplay
 import net.bbgen.karoo.partnerride.core.FieldState
 import net.bbgen.karoo.partnerride.core.GapRepository
 import net.bbgen.karoo.partnerride.data.streamSettings
+import net.bbgen.karoo.partnerride.service.FieldTapReceiver
 import net.bbgen.karoo.partnerride.service.ServiceController
 
 /**
@@ -34,7 +35,7 @@ import net.bbgen.karoo.partnerride.service.ServiceController
  *
  * The view is `res/layout/partner_gap_field.xml`, a single autosizing `TextView`: it measures the
  * string against the slot it was actually given and picks the largest size that fits. That is the
- * only reliable way to size this text — see the layout's comment and TECHNICAL.md §7.1.
+ * only reliable way to size this text — see the layout's comment and TECHNICAL.md §7.2.
  */
 class PartnerRideDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) {
 
@@ -47,7 +48,11 @@ class PartnerRideDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) 
             if (config.preview) {
                 // Page editor: no live data — render a representative sample.
                 emitter.updateView(
-                    gapFieldViews(context, FieldDisplay("42 m ▲", FieldBackground.GREEN)),
+                    gapFieldViews(
+                        context,
+                        FieldDisplay("42 m ▲", FieldBackground.GREEN),
+                        clickable = false,
+                    ),
                 )
                 awaitCancellation()
             }
@@ -138,10 +143,22 @@ private fun FieldBackground.textColor(): Int = when (this) {
 /**
  * The field as RemoteViews. Only the text, its color and the background shape are set — the text
  * *size* is the layout's job, and setting it here would be ignored anyway while autosizing is on.
+ *
+ * [clickable] attaches the tap handler ([FieldTapReceiver]: leave demo mode, else toggle the
+ * link). It has to be re-attached on every emission, because each update ships a whole new
+ * RemoteViews rather than patching the one on screen. Off in the page editor, where a tap belongs
+ * to the editor and there is no live link to toggle.
  */
-private fun gapFieldViews(context: Context, display: FieldDisplay): RemoteViews =
+private fun gapFieldViews(
+    context: Context,
+    display: FieldDisplay,
+    clickable: Boolean = true,
+): RemoteViews =
     RemoteViews(context.packageName, R.layout.partner_gap_field).apply {
         setTextViewText(R.id.partner_gap_text, display.text)
         setTextColor(R.id.partner_gap_text, display.background.textColor())
         setInt(R.id.partner_gap_text, "setBackgroundResource", display.background.backgroundRes())
+        if (clickable) {
+            setOnClickPendingIntent(R.id.partner_gap_text, FieldTapReceiver.pendingIntent(context))
+        }
     }

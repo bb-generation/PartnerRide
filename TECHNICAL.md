@@ -237,7 +237,40 @@ distinction meaningful, each service start resets the session in `GapRepository`
 packet/fix ages, smoothed gap), so a new session begins at the gray `NO SIGNAL`, never at a
 stale red one carried over from an earlier run.
 
-### 7.1 Sizing the text (why the field is a plain autosizing TextView)
+### 7.1 Tapping the field
+
+The field is the only PartnerRide surface a rider can reach without leaving the ride pages, so a
+tap on it does the two things worth doing mid-ride (`data/afterFieldTap`, JVM-tested):
+
+| Tapped while | Effect |
+|---|---|
+| Demo mode on | Leave demo mode (§7.4) |
+| Otherwise | Flip `enabled` — the same bit the settings screen's enable switch owns |
+
+Demo mode wins because a field cycling synthetic frames is showing no real gap at all; getting
+out of that always beats whatever else the tap could have meant. It also gives demo mode an exit
+on the page it is being watched on, rather than only in the settings screen.
+
+The field is RemoteViews inflated in **Karoo's** process, so the tap cannot call back into us
+directly — the only channel is a `PendingIntent`. `service/FieldTapReceiver` owns both ends: the
+`PendingIntent` the field attaches with `setOnClickPendingIntent`, and the receiver it fires. The
+receiver stays `exported="false"`: we create the `PendingIntent`, so the broadcast is dispatched
+under our identity even though Karoo's process is what sends it. It writes the flipped setting
+through `updateSettings {}` and hands the stored result to `ServiceController.sync`, so the link
+comes up or goes down on the same code path as every other trigger.
+
+Two consequences of RemoteViews, both deliberate:
+
+- The `PendingIntent` is re-attached on **every** emission. Each update ships a whole new
+  `RemoteViews` rather than patching the one on screen, so a click target set once would be lost
+  on the next tick.
+- Preview (`config.preview`, the page editor) gets **no** click target: a tap there belongs to the
+  editor, and there is no live link to toggle.
+
+An accidental tap can therefore switch the link off mid-ride. That is recoverable in one more tap
+— the field says `OFF` while it is — and the alternative, no mid-ride control at all, was worse.
+
+### 7.2 Sizing the text (why the field is a plain autosizing TextView)
 
 A single-line text that does not fit its slot is silently ellipsized: `150 m ▼` becomes `150 …`,
 dropping the one number the field exists to show. That was the field's behavior up to 1.6.3, and
@@ -261,7 +294,7 @@ Why the view and not a size computed from `ViewConfig`:
   a Karoo 3 — so the first attempt at this fix (`core/TextFit`, computing a fitted size from it)
   could have worked. It was never actually exercised: the screenshots showing it change nothing
   came from a build that predated it. That is why the settings screen now shows the running
-  version, and why demo mode reports the config (§7.3).
+  version, and why demo mode reports the config (§7.4).
 - Even given a correct width, the view still does it better: nothing has to cross the process
   boundary, and the slot's height is honoured as well as its width.
 
@@ -275,7 +308,7 @@ This is also why `FieldDisplay` carries no font scale. Up to 1.6.3 it had one (0
 labels, 0.62 for the last-known-value form) as a hand-tuned way to make longer strings fit; the
 view now does that properly, for every string, against the real slot.
 
-### 7.2 The background shape
+### 7.3 The background shape
 
 Karoo draws its field boundary **over** the graphic, and its own fields clip their background to
 that rounded rectangle. A flat background color therefore fills the four corners the boundary
@@ -293,7 +326,7 @@ boundaries looks like has never been seen here, so the flag is reported in demo 
 frame rather than branched on. If a rider with boundaries off ever reports odd corners, that flag
 is where to hang the exception.
 
-### 7.3 Demo mode
+### 7.4 Demo mode
 
 Most rows in the table above need two devices, a lost signal or a revoked permission to reach.
 Demo mode makes the field cycle every row, one frame every 2 s, so all of them can be checked on
@@ -303,7 +336,7 @@ and how a fix for it gets confirmed.
 The cycle is 19 frames, a 38 s loop: the 18 display states, preceded by one gray frame reporting
 the `ViewConfig` Karoo handed that slot, as
 `<cols>x<rows> <width>x<height> t<textSize> b<boundariesEnabled>` — e.g. `60x12 478x126 t55 b1`.
-It is the only way to see those numbers (§7.1, §7.2), and it doubles as build identification: an
+It is the only way to see those numbers (§7.2, §7.3), and it doubles as build identification: an
 APK that predates the frame cannot show it at all.
 
 `core/DemoFieldFrames` holds the frames as synthetic `PartnerRideState` values and feeds them
@@ -320,9 +353,10 @@ Two limits of the format the frames make explicit:
 Activation is a hidden gesture — 7 taps on the title of the settings screen, each within 3 s of
 the last (`screens/MainScreen`). There is deliberately no visible control for it: riders never
 need it, and a rider stuck in demo mode has a useless data field. Taps only ever switch it *on*;
-a section that appears only while `demoMode` is set owns switching it off, so it cannot be
-entered without an exit. The flag lives in `PartnerRideSettings`, so the running data field picks
-it up through `streamSettings()` without being re-added to the page.
+it has two exits — a section of the settings screen that appears only while `demoMode` is set,
+and a tap on the field itself (§7.1) — so it cannot be entered without a way back out. The flag
+lives in `PartnerRideSettings`, so the running data field picks it up through `streamSettings()`
+without being re-added to the page.
 
 The README's state table is made of these frames: `art/gen-field-states.py` crops the field out
 of a set of demo-mode screenshots of the map page into `art/field-states/`. Regenerate them from
@@ -353,7 +387,7 @@ PartnerLinkService (foreground, wakelock)          PartnerRideExtension (bound b
 - The in-ride field is RemoteViews-only (Karoo renders it in its own process): a layout from
   `res/layout/`, no custom `View` classes, and the field state re-rendered rather than animated.
   Glance was used for this until the field became an autosizing `TextView`, and is no longer a
-  dependency — a composed view cannot autosize its text (§7.1).
+  dependency — a composed view cannot autosize its text (§7.2).
 - The gap alert dispatches karoo-ext effects (`PlayBeepPattern`, `TurnScreenOn`, `InRideAlert`);
   standard Android audio does not route to the Karoo buzzer. Armed/disarmed logic fires once per
   threshold crossing and re-arms only after the gap drops back below the threshold.
@@ -494,6 +528,8 @@ To upgrade a rider's Karoo in place, build the release APK locally with the real
 - `core/` — pure logic, fully unit-tested: packet codec, couple code, timestamp
   reconstruction/replay guard, GPS fix ring buffer, gap engine (dead reckoning with the
   timestamp-matching fallback, sign, smoothing), zone hysteresis, data field display states.
+- `service/FieldTapReceiver.kt` — the data field's tap handler and the `PendingIntent` it is
+  fired through (§7.1); the decision it applies lives in `data/FieldTap.kt`.
 - `service/PartnerLinkService.kt` — foreground service: BLE advertise + scan (with the 20-minute
   scan restart that dodges Android's 30-minute scan demotion), GPS via `LocationManager`
   (satellite time for the packet timestamps), wakelock, gap alert.
