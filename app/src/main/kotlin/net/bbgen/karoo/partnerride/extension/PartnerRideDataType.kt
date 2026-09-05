@@ -1,10 +1,14 @@
 package net.bbgen.karoo.partnerride.extension
 
 import android.content.Context
+import android.graphics.Typeface
 import android.os.SystemClock
+import android.text.TextPaint
+import android.util.TypedValue
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.appwidget.ExperimentalGlanceRemoteViewsApi
@@ -13,6 +17,7 @@ import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -36,6 +41,7 @@ import net.bbgen.karoo.partnerride.core.FieldBackground
 import net.bbgen.karoo.partnerride.core.FieldDisplay
 import net.bbgen.karoo.partnerride.core.FieldState
 import net.bbgen.karoo.partnerride.core.GapRepository
+import net.bbgen.karoo.partnerride.core.TextFit
 import net.bbgen.karoo.partnerride.data.streamSettings
 import net.bbgen.karoo.partnerride.service.ServiceController
 
@@ -57,8 +63,9 @@ class PartnerRideDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) 
         val viewJob = CoroutineScope(Dispatchers.IO).launch {
             if (config.preview) {
                 // Page editor: no live data — render a representative sample.
+                val sample = FieldDisplay("42 m ▲", FieldBackground.GREEN, 1f)
                 val result = glance.compose(context, DpSize.Unspecified) {
-                    GapField(FieldDisplay("42 m ▲", FieldBackground.GREEN, 1f), config)
+                    GapField(sample, fittedFontSizeSp(context, sample, config))
                 }
                 emitter.updateView(result.remoteViews)
                 awaitCancellation()
@@ -91,7 +98,10 @@ class PartnerRideDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) 
                 }
                 .distinctUntilChanged()
                 .collect { display ->
-                    val result = glance.compose(context, DpSize.Unspecified) { GapField(display, config) }
+                    val fontSizeSp = fittedFontSizeSp(context, display, config)
+                    val result = glance.compose(context, DpSize.Unspecified) {
+                        GapField(display, fontSizeSp)
+                    }
                     emitter.updateView(result.remoteViews)
                 }
         }
@@ -113,6 +123,36 @@ class PartnerRideDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) 
 
         /** karoo-ext drops any updateView within ~900 ms of the previous one; stay outside that. */
         private const val VIEW_UPDATE_INTERVAL_MS = 1_000L
+
+        /**
+         * Breathing room on each side of the text. The colored background is full-bleed, so
+         * without it a fitted string ends flush against the slot's border.
+         */
+        internal const val FIELD_PADDING_DP = 4f
+    }
+}
+
+/**
+ * The font size to draw [display] at so it fits the slot's width.
+ *
+ * `config.textSize` is what Karoo would use for a number in a slot this tall and says nothing
+ * about how wide the slot is, so it overflows for everything longer than a couple of digits —
+ * see [TextFit]. Measured here rather than in core because only the view layer knows the device's
+ * font metrics; the search itself is [TextFit.fittedSp].
+ */
+private fun fittedFontSizeSp(context: Context, display: FieldDisplay, config: ViewConfig): Float {
+    val desiredSp = config.textSize * display.fontScale
+    val metrics = context.resources.displayMetrics
+    val paddingPx =
+        2f * TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            PartnerRideDataType.FIELD_PADDING_DP,
+            metrics,
+        )
+    val paint = TextPaint().apply { typeface = Typeface.DEFAULT_BOLD }
+    return TextFit.fittedSp(desiredSp, config.viewSize.first - paddingPx) { sp ->
+        paint.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, metrics)
+        paint.measureText(display.text)
     }
 }
 
@@ -129,17 +169,22 @@ private fun FieldBackground.textColor(): Color = when (this) {
 }
 
 @Composable
-private fun GapField(display: FieldDisplay, config: ViewConfig) {
+private fun GapField(display: FieldDisplay, fontSizeSp: Float) {
     Box(
-        modifier = GlanceModifier.fillMaxSize().background(display.background.color()),
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .background(display.background.color())
+            .padding(horizontal = PartnerRideDataType.FIELD_PADDING_DP.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = display.text,
+            // The size is fitted to the slot, so this only backstops a slot too narrow for
+            // TextFit.MIN_SP.
             maxLines = 1,
             style = TextStyle(
                 color = ColorProvider(display.background.textColor()),
-                fontSize = (config.textSize * display.fontScale).sp,
+                fontSize = fontSizeSp.sp,
                 fontWeight = FontWeight.Bold,
             ),
         )

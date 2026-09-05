@@ -104,7 +104,8 @@ see each other.
    from your desk: take both devices outside and give them a minute. Once both have a fix and
    are in range, the status shows *Broadcasting: yes* and a partner signal age of a few seconds.
 5. Add the field to a ride page: Profiles → edit page → add field → **PartnerRide → Partner Gap**.
-   Full-width and half-width cells are both supported.
+   Full-width and half-width cells are both supported — the text is sized to fit whichever
+   cell you put it in.
 6. Optional: enable the **Gap alert** and set a threshold (default 100 m). It beeps and flashes
    once each time the smoothed gap first exceeds the threshold, and re-arms after the gap closes.
 

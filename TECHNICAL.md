@@ -237,13 +237,40 @@ distinction meaningful, each service start resets the session in `GapRepository`
 packet/fix ages, smoothed gap), so a new session begins at the gray `NO SIGNAL`, never at a
 stale red one carried over from an earlier run.
 
-### 7.1 Demo mode
+### 7.1 Fitting the text to the slot
 
-The field is a single-line `Text` at a fixed size, so a string too wide for the ride-page slot
-truncates to `…` with nothing said about it — and most rows in the table above need two devices,
-a lost signal or a revoked permission to reach. Demo mode makes the field cycle every row, one
-frame every 2 s (18 frames, a 36 s loop), so the truncating one can be found on one device in the
-slot where it actually happens.
+The field is a single-line `Text`, and an overflowing one is silently ellipsized — `150 m ▼`
+becomes `150 …`, dropping the one number the field exists to show. Overflow is the normal case,
+not an edge case: `ViewConfig.textSize` is the size Karoo would use for a *number* in a slot of
+that grid size, derived from its height and sized for two or three digits, while every string in
+the table above is wider than that. On a 3-row page (tall rows, so a large `textSize`) even the
+full-width field truncated `5 m ▲`; in a half-width slot every state truncated.
+
+So the font size is measured, not assumed. `core/TextFit.fittedSp` takes the desired size
+(`textSize` × the state's font scale) and shrinks it until the string's rendered width fits
+`ViewConfig.viewSize`, minus 4 dp of padding on each side. It is given a measurement function
+rather than a character count, so the real font is used — including the arrow and middle-dot
+glyphs, which come from a fallback font; `extension/PartnerRideDataType` supplies that with a
+`TextPaint` set to the field's bold typeface. Width is very nearly linear in font size, so the
+first step lands on the answer and the two further passes only absorb hinting and rounding.
+
+Two limits are deliberate:
+
+- **Never below `TextFit.MIN_SP` (10 sp).** A quarter-width slot cannot fit `~150 m · 60 s` at
+  any readable size; there a clipped string beats a legible-to-nobody one, so `maxLines = 1`
+  stays as the backstop.
+- **Never above the desired size**, so the field still matches the numeric fields around it when
+  the string does fit.
+
+A slot width of 0 (an unexpected `viewSize`) means "unknown" and leaves the size alone rather
+than guessing.
+
+### 7.2 Demo mode
+
+Most rows in the table above need two devices, a lost signal or a revoked permission to reach.
+Demo mode makes the field cycle every row, one frame every 2 s (18 frames, a 36 s loop), so all
+of them can be checked on one device in the slot where they actually render — which is how the
+truncation above was found and how a fix for it can be confirmed.
 
 `core/DemoFieldFrames` holds the frames as synthetic `PartnerRideState` values and feeds them
 through the real `FieldState.build` rather than emitting hardcoded strings, so what demo mode
@@ -340,6 +367,8 @@ Consequences:
 | Zone thresholds / hysteresis | 15 m, 50 m / ±1 m | `ZoneTracker` |
 | Fresh / signal-lost limit | 5 s / 60 s | `FieldState.FRESH_MS` / `FieldState.SIGNAL_LOST_MS` |
 | Own-fix stale limit | 10 s | `FieldState.OWN_FIX_STALE_MS` |
+| Data field minimum font size | 10 sp | `TextFit.MIN_SP` |
+| Data field horizontal padding | 4 dp | `PartnerRideDataType.FIELD_PADDING_DP` |
 | GPS update interval | 1 s | `PartnerLinkService.LOCATION_INTERVAL_MS` |
 | Scan restart period | 20 min | `PartnerLinkService.SCAN_RESTART_INTERVAL_MS` |
 | Scan retry backoff | 5 s, doubling to 60 s | `PartnerLinkService.SCAN_RETRY_BASE_MS` / `_MAX_MS` |
@@ -421,7 +450,8 @@ To upgrade a rider's Karoo in place, build the release APK locally with the real
 
 - `core/` — pure logic, fully unit-tested: packet codec, couple code, timestamp
   reconstruction/replay guard, GPS fix ring buffer, gap engine (dead reckoning with the
-  timestamp-matching fallback, sign, smoothing), zone hysteresis, data field display states.
+  timestamp-matching fallback, sign, smoothing), zone hysteresis, data field display states and
+  the font-size fit that keeps them from being truncated.
 - `service/PartnerLinkService.kt` — foreground service: BLE advertise + scan (with the 20-minute
   scan restart that dodges Android's 30-minute scan demotion), GPS via `LocationManager`
   (satellite time for the packet timestamps), wakelock, gap alert.

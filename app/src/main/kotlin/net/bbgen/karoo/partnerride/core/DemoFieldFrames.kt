@@ -4,10 +4,11 @@ package net.bbgen.karoo.partnerride.core
  * Demo mode's frame list: every display state the data field can render, in a fixed order, one
  * every [FRAME_MS].
  *
- * The field truncates silently — it is a single-line Text at a fixed font size, so a string
- * too wide for the ride-page slot just becomes "…" — and most of these states need two devices,
- * a lost signal or a revoked permission to reach. Cycling them makes the truncating one
- * reproducible on a single device, in the actual page slot, in seconds.
+ * Most of these states need two devices, a lost signal or a revoked permission to reach, so
+ * cycling them is the only way to see each one rendered on a single device, in the actual page
+ * slot, in seconds. That is how the truncation [TextFit] now prevents was found: the field is a
+ * single-line Text, and one too wide for its slot used to become "150 …" with nothing said
+ * about it.
  *
  * Frames are synthetic [PartnerRideState] values pushed through the real [FieldState.build] rather
  * than a parallel list of hardcoded strings: what demo mode shows is then by construction what the
