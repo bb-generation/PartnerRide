@@ -308,8 +308,8 @@ APK that predates the frame cannot show it at all.
 
 `core/DemoFieldFrames` holds the frames as synthetic `PartnerRideState` values and feeds them
 through the real `FieldState.build` rather than emitting hardcoded strings, so what demo mode
-shows is by construction what the field shows. `DemoFieldFramesTest` pins each frame's text,
-background and font scale, and fails if a `FieldState` branch loses its frame.
+shows is by construction what the field shows. `DemoFieldFramesTest` pins each frame's text and
+background, and fails if a `FieldState` branch loses its frame.
 
 Two limits of the format the frames make explicit:
 
@@ -323,6 +323,11 @@ need it, and a rider stuck in demo mode has a useless data field. Taps only ever
 a section that appears only while `demoMode` is set owns switching it off, so it cannot be
 entered without an exit. The flag lives in `PartnerRideSettings`, so the running data field picks
 it up through `streamSettings()` without being re-added to the page.
+
+The README's state table is made of these frames: `art/gen-field-states.py` crops the field out
+of a set of demo-mode screenshots of the map page into `art/field-states/`. Regenerate them from
+fresh screenshots whenever the field's look changes, so the README shows what the field renders
+rather than what it once rendered.
 
 ## 8. App architecture
 

@@ -114,20 +114,26 @@ updates about once a second.
 
 ## Data field states
 
-| Display | Meaning |
+| Field | Meaning |
 |---|---|
-| `42 m ▲` on green/yellow/red | Live gap; ≤15 m green, ≤50 m yellow, >50 m red |
-| `~180 m · 8 s` on red | No signal for >5 s: last known value + its age |
-| `NO SIGNAL` on red | Partner signal lost for >60 s (usually: out of range) |
-| `NO SIGNAL` on gray | Running and sending, but no partner heard yet |
-| `NO GPS` on gray | No own GPS fix (yet, or for >10 s) — nothing is being sent |
-| `NO BT` on gray | Bluetooth is off |
-| `NO CODE` on gray | No couple code entered yet (or fewer than 6 digits) — nothing is sent |
-| `NO PERM` on gray | Location/Bluetooth permissions missing — open the app to grant them |
-| `OFF` on gray | PartnerRide is disabled (or its service is not running) |
+| <img src="art/field-states/green-ahead.png" width="237" alt="5 m and an up arrow, on green"> | Partner is **ahead** of you, gap 15 m or less |
+| <img src="art/field-states/green-behind.png" width="237" alt="5 m and a down arrow, on green"> | Partner is **behind** you, gap 15 m or less |
+| <img src="art/field-states/yellow-ahead.png" width="237" alt="50 m and an up arrow, on yellow"> | Partner ahead, gap up to 50 m |
+| <img src="art/field-states/yellow-behind.png" width="237" alt="50 m and a down arrow, on yellow"> | Partner behind, gap up to 50 m |
+| <img src="art/field-states/red-ahead.png" width="237" alt="150 m and an up arrow, on red"> | Partner ahead, gap over 50 m |
+| <img src="art/field-states/red-behind.png" width="237" alt="150 m and a down arrow, on red"> | Partner behind, gap over 50 m |
+| <img src="art/field-states/last-known.png" width="237" alt="approximately 150 m, 30 s, on red"> | No signal for more than 5 s: the last known gap and how old it is |
+| <img src="art/field-states/signal-lost.png" width="237" alt="NO SIGNAL on red"> | Partner signal lost for >60 s (usually: out of range) |
+| <img src="art/field-states/no-signal.png" width="237" alt="NO SIGNAL on gray"> | Running and sending, but no partner heard yet |
+| <img src="art/field-states/no-gps.png" width="237" alt="NO GPS on gray"> | No own GPS fix (yet, or for >10 s) — nothing is being sent |
+| <img src="art/field-states/no-bt.png" width="237" alt="NO BT on gray"> | Bluetooth is off |
+| <img src="art/field-states/no-code.png" width="237" alt="NO CODE on gray"> | No couple code entered yet (or fewer than 6 digits) — nothing is sent |
+| <img src="art/field-states/no-perm.png" width="237" alt="NO PERM on gray"> | Location/Bluetooth permissions missing — open the app to grant them |
+| <img src="art/field-states/off.png" width="237" alt="OFF on gray"> | PartnerRide is disabled (or its service is not running) |
 
 Gray states mean "not working, but nobody is being dropped"; red is reserved for a wide gap and
-for losing your partner mid-ride.
+for losing your partner mid-ride. The field sizes its text to whatever cell you put it in, so a
+half-width cell shows the same states in a smaller font rather than cutting them off.
 
 ## Troubleshooting
 
