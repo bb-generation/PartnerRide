@@ -258,10 +258,10 @@ Why the view and not a size computed from `ViewConfig`:
   but it knows nothing about the string, and every string here is wider than the two or three
   digits it is sized for.
 - `ViewConfig.viewSize` does report the slot in pixels — `478x126` full width, `238x126` half on
-  a Karoo 3 — so 1.6.4's first attempt (`core/TextFit`, computing a fitted size from it) could
-  have worked. It was never actually exercised: the screenshots showing it change nothing came
-  from a build that predated it. That is why the settings screen now shows the running version,
-  and why demo mode reports the config (§7.3).
+  a Karoo 3 — so the first attempt at this fix (`core/TextFit`, computing a fitted size from it)
+  could have worked. It was never actually exercised: the screenshots showing it change nothing
+  came from a build that predated it. That is why the settings screen now shows the running
+  version, and why demo mode reports the config (§7.3).
 - Even given a correct width, the view still does it better: nothing has to cross the process
   boundary, and the slot's height is honoured as well as its width.
 
@@ -304,7 +304,7 @@ The cycle is 19 frames, a 38 s loop: the 18 display states, preceded by one gray
 the `ViewConfig` Karoo handed that slot, as
 `<cols>x<rows> <width>x<height> t<textSize> b<boundariesEnabled>` — e.g. `60x12 478x126 t55 b1`.
 It is the only way to see those numbers (§7.1, §7.2), and it doubles as build identification: an
-APK built before 1.6.4 cannot show that frame at all.
+APK that predates the frame cannot show it at all.
 
 `core/DemoFieldFrames` holds the frames as synthetic `PartnerRideState` values and feeds them
 through the real `FieldState.build` rather than emitting hardcoded strings, so what demo mode
@@ -347,8 +347,8 @@ PartnerLinkService (foreground, wakelock)          PartnerRideExtension (bound b
   first shown); with redundant triggers no single bind order is load-bearing.
 - The in-ride field is RemoteViews-only (Karoo renders it in its own process): a layout from
   `res/layout/`, no custom `View` classes, and the field state re-rendered rather than animated.
-  Glance was used for this until 1.6.4 and is no longer a dependency — a composed view cannot
-  autosize its text (§7.1).
+  Glance was used for this until the field became an autosizing `TextView`, and is no longer a
+  dependency — a composed view cannot autosize its text (§7.1).
 - The gap alert dispatches karoo-ext effects (`PlayBeepPattern`, `TurnScreenOn`, `InRideAlert`);
   standard Android audio does not route to the Karoo buzzer. Armed/disarmed logic fires once per
   threshold crossing and re-arms only after the gap drops back below the threshold.
