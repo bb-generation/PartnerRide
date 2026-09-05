@@ -44,8 +44,8 @@ android {
         // 26 covers Karoo 2 (Android 8) and Karoo 3 (Android 12)
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "1.6.3"
+        versionCode = 12
+        versionName = "1.6.4"
     }
 
     signingConfigs {
@@ -137,9 +137,6 @@ dependencies {
     implementation(libs.bundles.androidx.lifeycle)
     implementation(libs.androidx.activity.compose)
     implementation(libs.bundles.compose.ui)
-    // graphical data fields (RemoteViews via Glance)
-    implementation(libs.androidx.glance.appwidget)
-    implementation(libs.androidx.glance.preview)
     // settings persistence
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)

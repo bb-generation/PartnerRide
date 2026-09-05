@@ -66,7 +66,7 @@ This matters more here than in most projects:
   precisely so this layer stays testable; keep it that way. **A change here can be fully proven by
   a test, and should come with one.**
 - **`service/`, `extension/`, `screens/`** — BLE advertising and scanning, GPS via
-  `LocationManager`, the foreground service, the Glance-rendered data field, the settings UI.
+  `LocationManager`, the foreground service, the RemoteViews data field, the settings UI.
   None of this is covered by the test suite and none of it is exercised by CI beyond compiling.
   Green CI on a change here means "it builds", nothing more.
 
@@ -114,7 +114,8 @@ reasoning behind each in more depth.
   toggle was also implemented and removed — riders have no way to judge that tradeoff. Please
   don't reintroduce either without asking first.
 - **Alerts go through karoo-ext** (`PlayBeepPattern` via `KarooSystemService`); standard Android
-  audio does not reach the Karoo buzzer. The in-ride field is RemoteViews-only, hence Glance.
+  audio does not reach the Karoo buzzer. The in-ride field is RemoteViews-only — a layout from
+  `res/layout/`, with the `TextView` sizing its own text (TECHNICAL.md §7.1).
 - **The extension id `partnerride`** must stay in sync across `PartnerRideExtension`,
   `extension_info.xml`, and every `DataTypeImpl`'s `typeId`.
 

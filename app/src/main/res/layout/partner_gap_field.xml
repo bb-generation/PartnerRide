@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The ride data field, as a RemoteViews layout inflated in Karoo's process.
+
+  autoSizeTextType="uniform" is the whole point of this file: the view measures the string
+  against its own width and height and picks the largest size that fits, so the field cannot
+  truncate. Nothing outside the view has to know how wide the page slot is — which is what an
+  earlier attempt at this got wrong.
+
+  Autosizing needs concrete bounds, so both dimensions are match_parent (with wrap_content it is
+  documented not to work). Text and colors are set from PartnerRideDataType; the size is not,
+  because TextView.setTextSize is a no-op while autosizing is on.
+-->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/partner_gap_text"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:autoSizeMaxTextSize="200sp"
+    android:autoSizeMinTextSize="10sp"
+    android:autoSizeTextType="uniform"
+    android:ellipsize="end"
+    android:gravity="center"
+    android:maxLines="1"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp"
+    android:textStyle="bold" />

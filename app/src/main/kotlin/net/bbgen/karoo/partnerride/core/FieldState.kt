@@ -3,11 +3,13 @@ package net.bbgen.karoo.partnerride.core
 /** Background of the data field; the view layer maps these to concrete colors. */
 enum class FieldBackground { GREEN, YELLOW, RED, GRAY }
 
+/**
+ * What the field shows: a string and a background. Deliberately no font size — the view sizes the
+ * text to the page slot it was given (TECHNICAL.md §7.1), which no state can know here.
+ */
 data class FieldDisplay(
     val text: String,
     val background: FieldBackground,
-    /** Relative font scale (word labels and stale values use longer, smaller text). */
-    val fontScale: Float,
 )
 
 /**
@@ -29,12 +31,9 @@ object FieldState {
     /** An own fix older than this means we are no longer broadcasting a usable position. */
     const val OWN_FIX_STALE_MS = 10_000L
 
-    private const val LABEL_SCALE = 0.7f
-    private const val LAST_KNOWN_SCALE = 0.62f
-
     fun build(state: PartnerRideState, nowElapsedMs: Long): FieldDisplay {
         if (state.missingPermissions.isNotEmpty()) return grayLabel("NO PERM")
-        if (!state.serviceRunning) return FieldDisplay("OFF", FieldBackground.GRAY, 1f)
+        if (!state.serviceRunning) return FieldDisplay("OFF", FieldBackground.GRAY)
         if (!state.bluetoothReady) return grayLabel("NO BT")
         // Nothing is broadcast or matched without a full 6-digit code, so say so rather than
         // sitting on NO SIGNAL forever.
@@ -50,7 +49,7 @@ object FieldState {
         }
         if (packetAge > SIGNAL_LOST_MS) {
             // Had contact and lost it — mid-ride this usually means the gap blew past BLE range.
-            return FieldDisplay("NO SIGNAL", FieldBackground.RED, LABEL_SCALE)
+            return FieldDisplay("NO SIGNAL", FieldBackground.RED)
         }
         val meters = roundGapForDisplay(gap)
         if (packetAge <= FRESH_MS) {
@@ -60,11 +59,11 @@ object FieldState {
                 GapZone.YELLOW -> FieldBackground.YELLOW
                 GapZone.RED -> FieldBackground.RED
             }
-            return FieldDisplay("$meters m $arrow", background, 1f)
+            return FieldDisplay("$meters m $arrow", background)
         }
         // Signal fading: last known value with its age, red until it counts as lost.
-        return FieldDisplay("~$meters m · ${packetAge / 1000} s", FieldBackground.RED, LAST_KNOWN_SCALE)
+        return FieldDisplay("~$meters m · ${packetAge / 1000} s", FieldBackground.RED)
     }
 
-    private fun grayLabel(text: String) = FieldDisplay(text, FieldBackground.GRAY, LABEL_SCALE)
+    private fun grayLabel(text: String) = FieldDisplay(text, FieldBackground.GRAY)
 }

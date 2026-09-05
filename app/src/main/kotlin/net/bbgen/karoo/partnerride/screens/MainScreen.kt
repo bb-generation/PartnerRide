@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import net.bbgen.karoo.partnerride.BuildConfig
 import net.bbgen.karoo.partnerride.R
 import net.bbgen.karoo.partnerride.core.CoupleCode
 import net.bbgen.karoo.partnerride.core.GapRepository
@@ -217,6 +218,12 @@ fun MainScreen(
         linkState.statusMessage?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
         }
+        // Both riders must be on the same build, and a field report is unactionable without
+        // knowing which one is installed — after a sideload this is the only way to tell.
+        StatusLine(
+            stringResource(R.string.status_version),
+            "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+        )
 
         // ---------------- demo ----------------
         // Conditional, so a normal rider never sees it; unconditional once on, so it is always
