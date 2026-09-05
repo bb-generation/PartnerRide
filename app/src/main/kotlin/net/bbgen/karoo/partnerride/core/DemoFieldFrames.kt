@@ -4,10 +4,10 @@ package net.bbgen.karoo.partnerride.core
  * Demo mode's frame list: every display state the data field can render, in a fixed order, one
  * every [FRAME_MS].
  *
- * The field truncates silently — it is a single-line Text at a fixed font size, so a string
- * too wide for the ride-page slot just becomes "…" — and most of these states need two devices,
- * a lost signal or a revoked permission to reach. Cycling them makes the truncating one
- * reproducible on a single device, in the actual page slot, in seconds.
+ * Most of these states need two devices, a lost signal or a revoked permission to reach, so
+ * cycling them is the only way to see each one rendered on a single device, in the actual page
+ * slot, in seconds. That is how the truncation was found — a string too wide for its slot became
+ * "150 …" with nothing said about it — and how a fix for it gets confirmed.
  *
  * Frames are synthetic [PartnerRideState] values pushed through the real [FieldState.build] rather
  * than a parallel list of hardcoded strings: what demo mode shows is then by construction what the
@@ -24,9 +24,9 @@ object DemoFieldFrames {
     const val NOW = 1_000_000L
 
     /**
-     * Ordered so the fresh gaps (widest strings at full font size) come first and the word labels
-     * last. Covers every branch of [FieldState.build] except the page-editor preview, which is not
-     * part of the live path; `DemoFieldFramesTest` fails if a branch loses its frame.
+     * Ordered so the fresh gaps come first and the word labels last. Covers every branch of
+     * [FieldState.build] except the page-editor preview, which is not part of the live path;
+     * `DemoFieldFramesTest` fails if a branch loses its frame.
      */
     val frames: List<PartnerRideState> = listOf(
         gap(5.0, ahead = true, zone = GapZone.GREEN),
@@ -57,12 +57,28 @@ object DemoFieldFrames {
         gap(150.0, ahead = true, zone = GapZone.RED).copy(serviceRunning = false),
     )
 
-    /** Which frame a monotonic timestamp falls in; wraps forever. */
-    fun frameIndex(elapsedMs: Long): Int = ((elapsedMs / FRAME_MS) % frames.size).toInt()
+    /** Frames in one loop: the display states, plus the leading report frame. */
+    val cycleLength: Int get() = frames.size + 1
 
-    /** What the field shows at [elapsedMs] while demo mode is on. */
-    fun displayAt(elapsedMs: Long): FieldDisplay =
-        FieldState.build(frames[frameIndex(elapsedMs)], NOW)
+    /** Which frame of the cycle a monotonic timestamp falls in; 0 is the report frame. Wraps forever. */
+    fun frameIndex(elapsedMs: Long): Int = ((elapsedMs / FRAME_MS) % cycleLength).toInt()
+
+    /**
+     * What the field shows at [elapsedMs] while demo mode is on.
+     *
+     * [report] is the text of the leading frame: the `ViewConfig` Karoo handed the slot, which
+     * only the view layer can see. It leads the cycle because it is the frame you go looking for
+     * — it says both what geometry the field was given and, by existing at all, which build is
+     * installed.
+     */
+    fun displayAt(elapsedMs: Long, report: String): FieldDisplay {
+        val index = frameIndex(elapsedMs)
+        return if (index == 0) {
+            FieldDisplay(report, FieldBackground.GRAY)
+        } else {
+            FieldState.build(frames[index - 1], NOW)
+        }
+    }
 
     /** A healthy link with a partner [meters] away; the sign of the gap carries [ahead]. */
     private fun gap(

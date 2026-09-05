@@ -21,6 +21,7 @@
     <string name="status_broadcasting">Broadcasting</string>
     <string name="status_partner_signal">Partner signal</string>
     <string name="status_own_gps">Own GPS fix</string>
+    <string name="status_version">App version</string>
     <string name="yes">yes</string>
     <string name="no">no</string>
     <string name="never">never</string>

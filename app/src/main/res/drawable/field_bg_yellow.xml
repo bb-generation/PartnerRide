@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Zone background for the data field. Rounded to the same radius as Karoo's own fields, so the
+     color stops where their boundary does instead of squaring off the corners. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/field_yellow" />
+    <corners android:radius="@dimen/field_corner_radius" />
+</shape>

@@ -98,7 +98,7 @@ Two cooperating services in one process, bridged by a `StateFlow` in `core/GapRe
   (payload updated in place per GPS fix), BLE scanning, GPS via `LocationManager`, and the gap
   alert. Runs whenever the extension is enabled, independent of ride recording.
 - `extension/PartnerRideExtension` — the karoo-ext service Karoo OS binds to; exposes
-  `PartnerRideDataType` (Glance→RemoteViews).
+  `PartnerRideDataType` (RemoteViews from `res/layout/partner_gap_field.xml`).
 - `core/` — pure Kotlin, no Android dependencies, fully unit-tested on the JVM. Monotonic "now"
   values are passed in as parameters so the logic stays testable; only the service layer touches
   `SystemClock`.
@@ -133,7 +133,11 @@ shown). Don't remove one of these triggers because it "looks duplicated".
   toggle was tried and removed because riders have no way to judge that tradeoff; don't
   reintroduce one without being asked.
 - Alerts/beeps go through karoo-ext (`PlayBeepPattern` via `KarooSystemService`) — standard
-  Android audio does not route to the Karoo buzzer. In-ride field UI is RemoteViews-only (Glance).
+  Android audio does not route to the Karoo buzzer. In-ride field UI is RemoteViews-only: a
+  plain layout whose `TextView` autosizes its own text against the slot it was given, and whose
+  background is a rounded-rect drawable matching Karoo's own field corners (TECHNICAL.md §7.1,
+  §7.2). Don't set the field's text size from code — `setTextSize` is a no-op under autosizing —
+  and don't give it a flat background color, which squares off those corners.
 - Extension id `partnerride` (no dots) must match in `PartnerRideExtension`, `extension_info.xml`,
   and each `DataTypeImpl`'s typeId must have a `<DataType>` entry there.
 - Demo mode (data field cycles every display state, `core/DemoFieldFrames`) is reached only by

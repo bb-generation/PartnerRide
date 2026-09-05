@@ -137,9 +137,6 @@ dependencies {
     implementation(libs.bundles.androidx.lifeycle)
     implementation(libs.androidx.activity.compose)
     implementation(libs.bundles.compose.ui)
-    // graphical data fields (RemoteViews via Glance)
-    implementation(libs.androidx.glance.appwidget)
-    implementation(libs.androidx.glance.preview)
     // settings persistence
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)

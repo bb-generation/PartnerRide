@@ -8,37 +8,36 @@ class DemoFieldFramesTest {
 
     /** What each frame must render, in cycle order. This table is the feature's specification. */
     private val expected = listOf(
-        Triple("5 m ▲", FieldBackground.GREEN, 1f),
-        Triple("5 m ▼", FieldBackground.GREEN, 1f),
-        Triple("10 m ▲", FieldBackground.GREEN, 1f),
-        Triple("10 m ▼", FieldBackground.GREEN, 1f),
-        Triple("50 m ▲", FieldBackground.YELLOW, 1f),
-        Triple("50 m ▼", FieldBackground.YELLOW, 1f),
-        Triple("150 m ▲", FieldBackground.RED, 1f),
-        Triple("150 m ▼", FieldBackground.RED, 1f),
-        Triple("~150 m · 5 s", FieldBackground.RED, 0.62f),
-        Triple("~150 m · 30 s", FieldBackground.RED, 0.62f),
-        Triple("~150 m · 60 s", FieldBackground.RED, 0.62f),
-        Triple("NO SIGNAL", FieldBackground.RED, 0.7f),
-        Triple("NO SIGNAL", FieldBackground.GRAY, 0.7f),
-        Triple("NO GPS", FieldBackground.GRAY, 0.7f),
-        Triple("NO BT", FieldBackground.GRAY, 0.7f),
-        Triple("NO CODE", FieldBackground.GRAY, 0.7f),
-        Triple("NO PERM", FieldBackground.GRAY, 0.7f),
-        Triple("OFF", FieldBackground.GRAY, 1f),
+        Pair("5 m ▲", FieldBackground.GREEN),
+        Pair("5 m ▼", FieldBackground.GREEN),
+        Pair("10 m ▲", FieldBackground.GREEN),
+        Pair("10 m ▼", FieldBackground.GREEN),
+        Pair("50 m ▲", FieldBackground.YELLOW),
+        Pair("50 m ▼", FieldBackground.YELLOW),
+        Pair("150 m ▲", FieldBackground.RED),
+        Pair("150 m ▼", FieldBackground.RED),
+        Pair("~150 m · 5 s", FieldBackground.RED),
+        Pair("~150 m · 30 s", FieldBackground.RED),
+        Pair("~150 m · 60 s", FieldBackground.RED),
+        Pair("NO SIGNAL", FieldBackground.RED),
+        Pair("NO SIGNAL", FieldBackground.GRAY),
+        Pair("NO GPS", FieldBackground.GRAY),
+        Pair("NO BT", FieldBackground.GRAY),
+        Pair("NO CODE", FieldBackground.GRAY),
+        Pair("NO PERM", FieldBackground.GRAY),
+        Pair("OFF", FieldBackground.GRAY),
     )
 
     private fun rendered(state: PartnerRideState) = FieldState.build(state, DemoFieldFrames.NOW)
 
     @Test
-    fun `every frame renders its expected text, background and scale`() {
+    fun `every frame renders its expected text and background`() {
         assertEquals(expected.size, DemoFieldFrames.frames.size)
         DemoFieldFrames.frames.forEachIndexed { i, state ->
             val display = rendered(state)
-            val (text, background, scale) = expected[i]
+            val (text, background) = expected[i]
             assertEquals("frame $i text", text, display.text)
             assertEquals("frame $i background", background, display.background)
-            assertEquals("frame $i scale", scale, display.fontScale)
         }
     }
 
@@ -71,9 +70,7 @@ class DemoFieldFramesTest {
         everyState.forEach { state ->
             val display = rendered(state)
             val match = covered.any {
-                it.text.matchesShape(display.text) &&
-                    it.background == display.background &&
-                    it.fontScale == display.fontScale
+                it.text.matchesShape(display.text) && it.background == display.background
             }
             assertTrue("no demo frame covers $display", match)
         }
@@ -84,21 +81,30 @@ class DemoFieldFramesTest {
         assertEquals(0, DemoFieldFrames.frameIndex(0L))
         assertEquals(0, DemoFieldFrames.frameIndex(DemoFieldFrames.FRAME_MS - 1))
         assertEquals(1, DemoFieldFrames.frameIndex(DemoFieldFrames.FRAME_MS))
-        val cycleMs = DemoFieldFrames.FRAME_MS * DemoFieldFrames.frames.size
+        val cycleMs = DemoFieldFrames.FRAME_MS * DemoFieldFrames.cycleLength
         assertEquals(0, DemoFieldFrames.frameIndex(cycleMs))
         assertEquals(1, DemoFieldFrames.frameIndex(cycleMs + DemoFieldFrames.FRAME_MS))
         assertEquals(
-            DemoFieldFrames.frames.size - 1,
+            DemoFieldFrames.cycleLength - 1,
             DemoFieldFrames.frameIndex(cycleMs - 1),
         )
     }
 
     @Test
-    fun `displayAt walks the frames in order`() {
+    fun `the cycle leads with the report frame and then walks the frames in order`() {
+        val lead = DemoFieldFrames.displayAt(0L, "60x15 480x120 t44")
+        assertEquals("60x15 480x120 t44", lead.text)
+        assertEquals(FieldBackground.GRAY, lead.background)
         DemoFieldFrames.frames.indices.forEach { i ->
-            val display = DemoFieldFrames.displayAt(i * DemoFieldFrames.FRAME_MS)
+            val display = DemoFieldFrames.displayAt((i + 1) * DemoFieldFrames.FRAME_MS, "report")
             assertEquals(expected[i].first, display.text)
         }
+    }
+
+    @Test
+    fun `the report frame is one frame long, like every other`() {
+        assertEquals("report", DemoFieldFrames.displayAt(DemoFieldFrames.FRAME_MS - 1, "report").text)
+        assertEquals(expected[0].first, DemoFieldFrames.displayAt(DemoFieldFrames.FRAME_MS, "report").text)
     }
 
     @Test

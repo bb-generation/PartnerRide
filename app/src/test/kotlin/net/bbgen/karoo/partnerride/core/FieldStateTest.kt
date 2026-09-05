@@ -93,7 +93,6 @@ class FieldStateTest {
         val display = FieldState.build(healthy(), now)
         assertEquals("12 m ▲", display.text)
         assertEquals(FieldBackground.GREEN, display.background)
-        assertEquals(1f, display.fontScale)
     }
 
     @Test
