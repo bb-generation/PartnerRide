@@ -136,8 +136,10 @@ for losing your partner mid-ride. The field sizes its text to whatever cell you 
 half-width cell shows the same states in a smaller font rather than cutting them off.
 
 **Tap the field to switch PartnerRide off and on again** without leaving the ride page — the same
-switch as in the app. It reads `OFF` while it is off; tap it again to bring the link back. Handy
-if you split up for a while and want the radio and the beeps out of the way.
+switch as in the settings menu. It reads `OFF` while it is off; tap it again to bring the link
+back. Useful when you are riding without your partner, or on a stretch where you don't need the
+gap and would rather save battery — switching it off stops the Bluetooth broadcasting, the GPS
+and the alerts.
 
 ## Troubleshooting
 
