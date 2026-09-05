@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Corner radius of a ride-page data field. Measured off Karoo's own fields (an ~18 px arc at
+      the Karoo 3's 1.875 density), because nothing in karoo-ext reports it: our background has to
+      match by construction, or its square corners fill in what Karoo's rounded boundary leaves
+      open.
+    -->
+    <dimen name="field_corner_radius">10dp</dimen>
+</resources>

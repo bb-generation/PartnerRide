@@ -107,33 +107,41 @@ class PartnerRideDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) 
 
 /**
  * What Karoo says about this slot, for demo mode's report frame: grid span, pixel size, numeric
- * font size. The field's only window onto those numbers — `viewSize` in particular cannot be
- * checked any other way, and trusting it is what broke the first attempt at fixing the
- * truncation (TECHNICAL.md §7.1).
+ * font size, and whether the page draws field boundaries. The field's only window onto those
+ * numbers, and the record of what the corner radius and the text fit are up against.
  */
 private fun ViewConfig.report(): String =
-    "${gridSize.first}x${gridSize.second} ${viewSize.first}x${viewSize.second} t$textSize"
+    "${gridSize.first}x${gridSize.second} ${viewSize.first}x${viewSize.second} " +
+        "t$textSize b${if (boundariesEnabled) 1 else 0}"
 
-/** The field's colors. Plain ARGB ints: this view is RemoteViews, not Compose. */
-private fun FieldBackground.color(): Int = when (this) {
-    FieldBackground.GREEN -> 0xFF1DB954.toInt()
-    FieldBackground.YELLOW -> 0xFFFFC107.toInt()
-    FieldBackground.RED -> 0xFFE0352B.toInt()
-    FieldBackground.GRAY -> 0xFF4A4A4A.toInt()
+/**
+ * The zone background: a rounded rectangle rather than a color, because Karoo draws its field
+ * boundary *over* the graphic. A flat color fills the corners the boundary leaves open, which on
+ * a map page shows as squared-off blocks of color with a rounded outline drawn inside them.
+ *
+ * A drawable per color because the size cannot be tinted from here: `setBackgroundTintList` over
+ * RemoteViews needs API 31 and Karoo 2 is API 26.
+ */
+private fun FieldBackground.backgroundRes(): Int = when (this) {
+    FieldBackground.GREEN -> R.drawable.field_bg_green
+    FieldBackground.YELLOW -> R.drawable.field_bg_yellow
+    FieldBackground.RED -> R.drawable.field_bg_red
+    FieldBackground.GRAY -> R.drawable.field_bg_gray
 }
 
+/** Plain ARGB ints: this view is RemoteViews, not Compose. */
 private fun FieldBackground.textColor(): Int = when (this) {
     FieldBackground.GREEN, FieldBackground.YELLOW -> 0xFF000000.toInt()
     FieldBackground.RED, FieldBackground.GRAY -> 0xFFFFFFFF.toInt()
 }
 
 /**
- * The field as RemoteViews. Only text and colors are set — the text *size* is the layout's job,
- * and setting it here would be ignored anyway while autosizing is on.
+ * The field as RemoteViews. Only the text, its color and the background shape are set — the text
+ * *size* is the layout's job, and setting it here would be ignored anyway while autosizing is on.
  */
 private fun gapFieldViews(context: Context, display: FieldDisplay): RemoteViews =
     RemoteViews(context.packageName, R.layout.partner_gap_field).apply {
         setTextViewText(R.id.partner_gap_text, display.text)
         setTextColor(R.id.partner_gap_text, display.background.textColor())
-        setInt(R.id.partner_gap_text, "setBackgroundColor", display.background.color())
+        setInt(R.id.partner_gap_text, "setBackgroundResource", display.background.backgroundRes())
     }

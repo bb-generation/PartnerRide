@@ -251,16 +251,19 @@ sets only the text and the two colors; the size is chosen by the view, which mea
 against the width and height it was actually given and takes the largest size that fits
 (`maxLines="1"` makes any size that would wrap count as not fitting).
 
-Sizing has to happen there because nothing on our side of the process boundary knows how wide the
-slot is:
+Why the view and not a size computed from `ViewConfig`:
 
-- `ViewConfig.textSize` is what Karoo would use for a *number* in a slot of that grid size —
-  derived from its height, and blind to both the width and the string.
-- `ViewConfig.viewSize` is documented as the view's size in pixels, but computing a fitted size
-  from it (1.6.4's first attempt, `core/TextFit`) changed nothing on device: every state rendered
-  identically, which it can only do if that width never came back usable. Demo mode's first frame
-  now reports `gridSize`, `viewSize` and `textSize` verbatim, so the next such question costs one
-  screenshot rather than one release.
+- `ViewConfig.textSize` is what Karoo would use for a *number* in that slot. It does account for
+  the slot's width to a degree (a Karoo 3 gives 55 sp full width, 41 sp half at the same height),
+  but it knows nothing about the string, and every string here is wider than the two or three
+  digits it is sized for.
+- `ViewConfig.viewSize` does report the slot in pixels — `478x126` full width, `238x126` half on
+  a Karoo 3 — so 1.6.4's first attempt (`core/TextFit`, computing a fitted size from it) could
+  have worked. It was never actually exercised: the screenshots showing it change nothing came
+  from a build that predated it. That is why the settings screen now shows the running version,
+  and why demo mode reports the config (§7.3).
+- Even given a correct width, the view still does it better: nothing has to cross the process
+  boundary, and the slot's height is honoured as well as its width.
 
 Bounds live in the layout: `autoSizeMinTextSize="10sp"` (below that the field is unreadable
 anyway, so `ellipsize="end"` takes over as the backstop) and `autoSizeMaxTextSize="200sp"`
@@ -272,7 +275,25 @@ This is also why `FieldDisplay` carries no font scale. Up to 1.6.3 it had one (0
 labels, 0.62 for the last-known-value form) as a hand-tuned way to make longer strings fit; the
 view now does that properly, for every string, against the real slot.
 
-### 7.2 Demo mode
+### 7.2 The background shape
+
+Karoo draws its field boundary **over** the graphic, and its own fields clip their background to
+that rounded rectangle. A flat background color therefore fills the four corners the boundary
+leaves open: the field reads as a square block of color with a rounded outline drawn inside it,
+most visibly on a map page, where every other field lets the map through at the corners.
+
+So the background is a rounded-rect drawable (`res/drawable/field_bg_*.xml`), one per zone color,
+selected with `setInt(id, "setBackgroundResource", …)`. One drawable tinted per state would be
+nicer, but `setBackgroundTintList` over RemoteViews needs API 31 and Karoo 2 is API 26.
+
+The radius (`field_corner_radius`, 10 dp) is measured off Karoo's own fields — an ~18 px arc at
+the Karoo 3's 1.875 density — because karoo-ext reports no such value. It is rounded
+unconditionally, including when `ViewConfig.boundariesEnabled` is false; what a page without
+boundaries looks like has never been seen here, so the flag is reported in demo mode's config
+frame rather than branched on. If a rider with boundaries off ever reports odd corners, that flag
+is where to hang the exception.
+
+### 7.3 Demo mode
 
 Most rows in the table above need two devices, a lost signal or a revoked permission to reach.
 Demo mode makes the field cycle every row, one frame every 2 s, so all of them can be checked on
@@ -280,9 +301,10 @@ one device in the slot where they actually render — which is how the truncatio
 and how a fix for it gets confirmed.
 
 The cycle is 19 frames, a 38 s loop: the 18 display states, preceded by one gray frame reporting
-the `ViewConfig` Karoo handed that slot, as `<cols>x<rows> <width>x<height> t<textSize>`. It is
-the only way to see those numbers (§7.1), and it doubles as build identification — an APK built
-before 1.6.4 cannot show that frame, so a screenshot says which build is installed.
+the `ViewConfig` Karoo handed that slot, as
+`<cols>x<rows> <width>x<height> t<textSize> b<boundariesEnabled>` — e.g. `60x12 478x126 t55 b1`.
+It is the only way to see those numbers (§7.1, §7.2), and it doubles as build identification: an
+APK built before 1.6.4 cannot show that frame at all.
 
 `core/DemoFieldFrames` holds the frames as synthetic `PartnerRideState` values and feeds them
 through the real `FieldState.build` rather than emitting hardcoded strings, so what demo mode
@@ -383,6 +405,7 @@ Consequences:
 | Own-fix stale limit | 10 s | `FieldState.OWN_FIX_STALE_MS` |
 | Data field font size range | 10-200 sp, autosized | `res/layout/partner_gap_field.xml` |
 | Data field horizontal padding | 4 dp | `res/layout/partner_gap_field.xml` |
+| Data field corner radius | 10 dp | `field_corner_radius` (`res/values/dimens.xml`) |
 | Demo mode frame length / cycle | 2 s / 19 frames | `DemoFieldFrames.FRAME_MS` + the config frame |
 | GPS update interval | 1 s | `PartnerLinkService.LOCATION_INTERVAL_MS` |
 | Scan restart period | 20 min | `PartnerLinkService.SCAN_RESTART_INTERVAL_MS` |
@@ -470,5 +493,5 @@ To upgrade a rider's Karoo in place, build the release APK locally with the real
   scan restart that dodges Android's 30-minute scan demotion), GPS via `LocationManager`
   (satellite time for the packet timestamps), wakelock, gap alert.
 - `extension/` — the karoo-ext extension service and the data field (RemoteViews from
-  `res/layout/partner_gap_field.xml`).
+  `res/layout/partner_gap_field.xml`, on the rounded `res/drawable/field_bg_*.xml`).
 - `screens/MainScreen.kt` — settings UI (enable, couple code, alert, status).

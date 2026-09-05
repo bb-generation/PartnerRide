@@ -134,9 +134,10 @@ shown). Don't remove one of these triggers because it "looks duplicated".
   reintroduce one without being asked.
 - Alerts/beeps go through karoo-ext (`PlayBeepPattern` via `KarooSystemService`) — standard
   Android audio does not route to the Karoo buzzer. In-ride field UI is RemoteViews-only: a
-  plain layout whose `TextView` autosizes its own text, because nothing outside Karoo's process
-  reliably knows the slot's width (`ViewConfig.viewSize` did not work; TECHNICAL.md §7.1).
-  Don't set the field's text size from code — `setTextSize` is a no-op under autosizing.
+  plain layout whose `TextView` autosizes its own text against the slot it was given, and whose
+  background is a rounded-rect drawable matching Karoo's own field corners (TECHNICAL.md §7.1,
+  §7.2). Don't set the field's text size from code — `setTextSize` is a no-op under autosizing —
+  and don't give it a flat background color, which squares off those corners.
 - Extension id `partnerride` (no dots) must match in `PartnerRideExtension`, `extension_info.xml`,
   and each `DataTypeImpl`'s typeId must have a `<DataType>` entry there.
 - Demo mode (data field cycles every display state, `core/DemoFieldFrames`) is reached only by

@@ -4,12 +4,12 @@
 
   autoSizeTextType="uniform" is the whole point of this file: the view measures the string
   against its own width and height and picks the largest size that fits, so the field cannot
-  truncate. Nothing outside the view has to know how wide the page slot is — which is what an
-  earlier attempt at this got wrong.
+  truncate, and nothing outside the view has to know the slot's geometry (TECHNICAL.md §7.1).
 
   Autosizing needs concrete bounds, so both dimensions are match_parent (with wrap_content it is
-  documented not to work). Text and colors are set from PartnerRideDataType; the size is not,
-  because TextView.setTextSize is a no-op while autosizing is on.
+  documented not to work). PartnerRideDataType sets the text, its color and the rounded
+  background drawable; the text size it cannot set, because TextView.setTextSize is a no-op
+  while autosizing is on.
 -->
 <TextView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/partner_gap_text"
