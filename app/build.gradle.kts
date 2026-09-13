@@ -44,8 +44,8 @@ android {
         // 26 covers Karoo 2 (Android 8) and Karoo 3 (Android 12)
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.6.4"
+        versionCode = 13
+        versionName = "1.6.5"
     }
 
     signingConfigs {
