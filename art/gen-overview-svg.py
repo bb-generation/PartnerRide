@@ -13,7 +13,7 @@ and timing helpers live in art/svgkit.py.
 
 from pathlib import Path
 
-from svgkit import (A_COL, B_COL, BG, BLE, FAINT, MUTED, PANEL_EDGE, TEXT, YELLOW,
+from svgkit import (A_COL, B_COL, BG, BLE, FAINT, PANEL_EDGE, TEXT, YELLOW,
                     Timeline, bike, bt_rune, road_dashes, satellite, txt)
 
 W, H = 900, 400
@@ -53,7 +53,7 @@ add(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" 
 add('<title id="ttl">What PartnerRide does</title>')
 add('<desc id="dsc">Two riders, each with a Karoo. Both get their position from GPS and send it '
     'straight to the other bike over Bluetooth — no internet, no phone — and the distance between '
-    'the two of you appears on your ride screen.</desc>')
+    'the two of you appears on both ride screens: partner ahead on yours, you behind on theirs.</desc>')
 
 add('<defs>')
 add(f'<marker id="aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" '
@@ -114,19 +114,25 @@ add(f'<g>{fade(13.8, HOLD)}'
     f'stroke-dashoffset="0">{draw_on(PARTNER-YOU, 13.8, 15.0)}</line></g>')
 add(f'<g>{fade(15.0, HOLD)}'
     f'{txt((YOU+PARTNER)/2, LINE_Y-10, "28 m", 14, TEXT, anchor="middle", weight="600")}</g>')
-add(beat(*B3, "…and the distance between you shows on your ride screen"))
+add(beat(*B3, "…and the distance between you shows on both ride screens"))
 
-# the ride-screen field: an empty slot from the start, filled in on the last beat.
-# The filled version is drawn last and is opaque, so a renderer without SMIL shows it.
-FX, FY, FW, FH = W/2 - 96, 292, 192, 68
-add(f'<rect x="{FX}" y="{FY}" width="{FW}" height="{FH}" rx="10" fill="#161b23" stroke="{PANEL_EDGE}"/>')
-add(txt(W/2, FY + 26, "PARTNER GAP", 10, FAINT, anchor="middle", mono=True))
-add(txt(W/2, FY + 52, "—", 22, FAINT, anchor="middle", weight="700"))
-add(txt(W/2, FY + 86, "on your Karoo ride screen", 11.5, MUTED, anchor="middle"))
-add(f'<g>{fade(15.6, HOLD)}'
-    f'<rect x="{FX}" y="{FY}" width="{FW}" height="{FH}" rx="10" fill="{YELLOW}"/>'
-    f'{txt(W/2, FY + 50, "28 m ▲", 34, "#101418", anchor="middle", weight="700")}'
-    f'</g>')
+# the ride-screen fields, one under each rider, so the picture shows what each of you
+# sees: the same distance, with the arrow pointing the way to the other bike. Both
+# ride to the right, so the partner is ahead of you (▲) and you are behind them (▼).
+# Each is an empty slot from the start, filled in on the last beat. The filled
+# version is drawn last and is opaque, so a renderer without SMIL shows it.
+FY, FW, FH = 292, 192, 68
+for cx, col, value, owner in ((YOU, A_COL, "28 m ▲", "on your Karoo"),
+                              (PARTNER, B_COL, "28 m ▼", "on your partner's Karoo")):
+    fx = cx - FW / 2
+    add(f'<rect x="{fx}" y="{FY}" width="{FW}" height="{FH}" rx="10" fill="#161b23" stroke="{PANEL_EDGE}"/>')
+    add(txt(cx, FY + 26, "PARTNER GAP", 10, FAINT, anchor="middle", mono=True))
+    add(txt(cx, FY + 52, "—", 22, FAINT, anchor="middle", weight="700"))
+    add(txt(cx, FY + 86, owner, 11.5, col, anchor="middle"))
+    add(f'<g>{fade(15.6, HOLD)}'
+        f'<rect x="{fx}" y="{FY}" width="{FW}" height="{FH}" rx="10" fill="{YELLOW}"/>'
+        f'{txt(cx, FY + 50, value, 34, "#101418", anchor="middle", weight="700")}'
+        f'</g>')
 
 add('</svg>')
 
