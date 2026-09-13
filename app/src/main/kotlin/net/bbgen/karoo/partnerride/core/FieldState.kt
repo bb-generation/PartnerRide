@@ -31,12 +31,22 @@ object FieldState {
     /** An own fix older than this means we are no longer broadcasting a usable position. */
     const val OWN_FIX_STALE_MS = 10_000L
 
+    /**
+     * How long after the link starts Bluetooth being off is not reported. Stopping the link
+     * releases Bluetooth, Karoo OS switches the radio off, and a start requests it again — it took
+     * ~2 s to come back on a Karoo 3, which flashed NO BT as if the rider had to do something.
+     * Only applies right after a start: Bluetooth going off mid-ride still shows NO BT at once.
+     */
+    const val BLUETOOTH_START_GRACE_MS = 5_000L
+
     fun build(state: PartnerRideState, nowElapsedMs: Long): FieldDisplay {
         if (state.missingPermissions.isNotEmpty()) return grayLabel("NO PERM")
         // Not an error: the link only ever starts from a user action (TECHNICAL.md §8), so after
         // every power-on this is what the field shows — and it says how to get out of it.
         if (!state.serviceRunning) return grayLabel("TAP TO START")
-        if (!state.bluetoothReady) return grayLabel("NO BT")
+        val sinceStart = state.serviceStartedElapsedMs?.let { nowElapsedMs - it }
+        val bluetoothStarting = sinceStart != null && sinceStart < BLUETOOTH_START_GRACE_MS
+        if (!state.bluetoothReady && !bluetoothStarting) return grayLabel("NO BT")
         // Nothing is broadcast or matched without a full 6-digit code, so say so rather than
         // sitting on NO SIGNAL forever.
         if (!state.coupleCodeValid) return grayLabel("NO CODE")

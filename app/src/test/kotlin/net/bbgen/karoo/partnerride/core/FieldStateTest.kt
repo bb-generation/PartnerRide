@@ -59,6 +59,35 @@ class FieldStateTest {
     }
 
     @Test
+    fun `bluetooth still coming up right after a start does not show NO BT`() {
+        val state = healthy().copy(
+            bluetoothReady = false,
+            serviceStartedElapsedMs = now - FieldState.BLUETOOTH_START_GRACE_MS + 1,
+        )
+        // Falls through to the next state instead: here, the live gap.
+        assertEquals("12 m ▲", FieldState.build(state, now).text)
+    }
+
+    @Test
+    fun `bluetooth still off once the start grace is over shows NO BT`() {
+        val state = healthy().copy(
+            bluetoothReady = false,
+            serviceStartedElapsedMs = now - FieldState.BLUETOOTH_START_GRACE_MS,
+        )
+        assertEquals("NO BT", FieldState.build(state, now).text)
+    }
+
+    @Test
+    fun `start grace falls through to NO GPS while there is no fix yet`() {
+        val state = PartnerRideState(
+            serviceRunning = true,
+            serviceStartedElapsedMs = now - 1_000L,
+            bluetoothReady = false,
+        )
+        assertEquals("NO GPS", FieldState.build(state, now).text)
+    }
+
+    @Test
     fun `bluetooth off shows NO BT`() {
         val state = healthy().copy(bluetoothReady = false)
         assertEquals("NO BT", FieldState.build(state, now).text)
