@@ -33,6 +33,13 @@ With PartnerRide, the number on the ride screen starts growing the moment it hap
 and can look back, ease off, soft-pedal, stop, or ride back — while the two of you are still
 within sight of each other.
 
+## See it in action
+
+| Setting it up | On a real ride |
+| :---: | :---: |
+| <img src="art/videos/install.webp" width="300" alt="Screen recording of a Karoo: opening PartnerRide from the extensions list, allowing the location and nearby-devices pop-ups, entering the couple code, adding the Partner Gap field to a ride page, and the field going from NO GPS to showing the gap to the partner"> | <img src="art/videos/ride.webp" width="300" alt="Screen recording of a Karoo on a ride: the Partner Gap field at the top of the ride page shows the partner a few meters behind, growing to 18 m on yellow and closing back to 3 m on green"> |
+| First launch, the two permission pop-ups (tap the circled buttons), couple code, adding the field. [Step by step](#first-time-setup-both-devices). | 43 seconds of a real ride, partner just behind: the gap grows to 18 m, turns yellow, and closes again. |
+
 ## How it works
 
 ![Two riders, each with a Karoo. Both get their position from GPS and send it straight to the other
