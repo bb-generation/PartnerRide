@@ -34,11 +34,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat">
-        <!-- No MANIFEST_URL while this repository is private: the update-discovery URL has to be
-             fetchable without credentials, and GitHub serves 404 for a private repo's release
-             assets to anyone unauthenticated. Karoo OS and the phone companion app have no GitHub
-             session (only a browser does), so pointing at one turned every install into a
-             "download failed". See CLAUDE.md "Update discovery" before adding it back. -->
+        <!-- Lets an already-installed copy discover updates from Settings -> Extensions,
+             independent of being listed in the curated Extensions Library. The URL must stay
+             fetchable without credentials - see CLAUDE.md "Update discovery". -->
+        <meta-data
+            android:name="io.hammerhead.karooext.MANIFEST_URL"
+            android:value="https://github.com/bb-generation/PartnerRide/releases/latest/download/manifest.json" />
 
         <activity
             android:name=".MainActivity"
