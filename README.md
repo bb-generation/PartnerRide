@@ -98,7 +98,7 @@ see each other.
 1. On the Karoo: open PartnerRide. Grant the Bluetooth and Location permissions when prompted.
 2. **Device A:** tap **Generate** — it creates a 6-digit code like `428713`.
 3. **Device B:** type exactly those 6 digits into the couple-code field.
-4. Enable **PartnerRide enabled** on both devices. **Your Karoo only starts sending once it has
+4. Switch **PartnerRide enabled** on, on both devices. **Your Karoo only starts sending once it has
    a GPS fix** — until then the status section keeps showing *Broadcasting: no*, even though
    everything is set up correctly. Indoors that fix may never arrive, so don't judge the setup
    from your desk: take both devices outside and give them a minute. Once both have a fix and
@@ -109,8 +109,13 @@ see each other.
 6. Optional: enable the **Gap alert** and set a threshold (default 100 m). It beeps and flashes
    once each time the smoothed gap first exceeds the threshold, and re-arms after the gap closes.
 
-The link runs whenever the extension is enabled — no ride recording needed, and the number
-updates about once a second.
+The link runs from the moment you start it until you stop it — no ride recording needed, and the
+number updates about once a second.
+
+**Before every ride, tap the field once on both Karoos.** PartnerRide is always off after the
+Karoo is switched on, and the field says `TAP TO START` until you do. It doesn't start by itself
+on purpose: Android only gives an app GPS in the background if you started it yourself, and the
+link uses no battery on days you ride alone.
 
 ## Data field states
 
@@ -129,15 +134,14 @@ updates about once a second.
 | <img src="art/field-states/no-bt.png" width="237" alt="NO BT on gray"> | Bluetooth is off |
 | <img src="art/field-states/no-code.png" width="237" alt="NO CODE on gray"> | No couple code entered yet (or fewer than 6 digits) — nothing is sent |
 | <img src="art/field-states/no-perm.png" width="237" alt="NO PERM on gray"> | Location/Bluetooth permissions missing — open the app to grant them |
-| <img src="art/field-states/off.png" width="237" alt="OFF on gray"> | PartnerRide is disabled (or its service is not running) |
+| <img src="art/field-states/tap-to-start.png" width="237" alt="TAP TO START on gray"> | PartnerRide is off — tap the field to start it. Always the case after the Karoo is switched on |
 
 Gray states mean "not working, but nobody is being dropped"; red is reserved for a wide gap and
 for losing your partner mid-ride. The field sizes its text to whatever cell you put it in, so a
 half-width cell shows the same states in a smaller font rather than cutting them off.
 
-**Tap the field to switch PartnerRide off and on again** without leaving the ride page — the same
-switch as in the settings menu. It reads `OFF` while it is off; tap it again to bring the link
-back. Useful when you are riding without your partner, or on a stretch where you don't need the
+**Tap the field to start PartnerRide, and tap it again to stop it**, without leaving the ride
+page — the same switch as in the settings menu. It reads `TAP TO START` while it is off. Useful when you are riding without your partner, or on a stretch where you don't need the
 gap and would rather save battery — switching it off stops the Bluetooth broadcasting, the GPS
 and the alerts.
 
@@ -149,8 +153,8 @@ list, both devices at a time:
 - **Same couple code?** All six digits, exactly the same on both.
 - **Same app version?** Different versions cannot see each other at all. This is by far the most
   common cause.
-- **Enabled on both?** The **PartnerRide enabled** toggle in the app, not just the field on the
-  ride page.
+- **Started on both?** A field reading `TAP TO START` means that Karoo isn't running
+  PartnerRide — tap it. This is needed again after every time the Karoo is switched on.
 - **Does each Karoo have a GPS fix?** Nothing is sent before the first fix — check for
   *Broadcasting: yes* in the app, outdoors.
 - **Bluetooth on and permissions granted?** The field says `NO BT` or `NO PERM` if not.

@@ -7,12 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import androidx.lifecycle.lifecycleScope
-import net.bbgen.karoo.partnerride.data.streamSettings
 import net.bbgen.karoo.partnerride.screens.MainScreen
-import net.bbgen.karoo.partnerride.service.PartnerLinkService
 import net.bbgen.karoo.partnerride.service.ServiceController
 import net.bbgen.karoo.partnerride.theme.AppTheme
 
@@ -21,11 +16,9 @@ class MainActivity : ComponentActivity() {
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            // Only record the result (clearing NO PERM on the field). Granting does not start the
+            // link — the rider does, with the switch or a tap on the field.
             refreshPermissions()
-            // Permissions may have just been granted: bring the service up if enabled.
-            lifecycleScope.launch {
-                ServiceController.sync(applicationContext, applicationContext.streamSettings().first())
-            }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,15 +39,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Permissions can be revoked in system settings while we are away. Opening the app does
+        // not start the link: that stays a deliberate switch or field tap (see ServiceController).
         refreshPermissions()
-        // Opening the app is one of the redundant triggers that bring the link service up (with
-        // the boot receiver and the data field view) — the enable toggle must not be the only way.
-        lifecycleScope.launch {
-            ServiceController.sync(applicationContext, applicationContext.streamSettings().first())
-        }
     }
 
     private fun refreshPermissions() {
-        missingPermissions = PartnerLinkService.missingPermissions(this)
+        missingPermissions = ServiceController.recordMissingPermissions(applicationContext)
     }
 }

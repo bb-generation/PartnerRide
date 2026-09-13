@@ -52,7 +52,7 @@ field](art/partnerride-workflow.svg)
 | Scan-start rate limit | Guard queue keeps starts ≤ 4 per 30 s | Android silently blocks apps starting > 5 scans per 30 s; normal operation is 1 start per 20 min |
 
 Everything runs in a foreground service (`PartnerLinkService`) holding a partial wakelock,
-active whenever the extension is enabled — independent of ride recording. Karoo OS owns the
+active from the rider starting it until they stop it (§8) — independent of ride recording. Karoo OS owns the
 radios, so the service dispatches karoo-ext's `RequestBluetooth` on start and
 `ReleaseBluetooth` on stop. All scan/advertise callbacks are marshalled onto a dedicated
 `HandlerThread`; no BLE work happens on the main thread.
@@ -222,7 +222,7 @@ matching row from the top wins**, so the field always names the first problem to
 | Condition | Display | Background |
 |---|---|---|
 | Runtime permissions missing | `NO PERM` | gray |
-| Link service not running (extension disabled) | `OFF` | gray |
+| Link service not running (after every power-on, or stopped) | `TAP TO START` | gray |
 | Bluetooth off | `NO BT` | gray |
 | Couple code empty or < 6 digits | `NO CODE` | gray |
 | No own GPS fix yet, or own fix > 10 s old (not broadcasting) | `NO GPS` | gray |
@@ -240,12 +240,16 @@ stale red one carried over from an earlier run.
 ### 7.1 Tapping the field
 
 The field is the only PartnerRide surface a rider can reach without leaving the ride pages, so a
-tap on it does the two things worth doing mid-ride (`data/afterFieldTap`, JVM-tested):
+tap on it does the two things worth doing mid-ride (`data/fieldTapAction`, JVM-tested):
 
 | Tapped while | Effect |
 |---|---|
 | Demo mode on | Leave demo mode (§7.4) |
-| Otherwise | Flip `enabled` — the same bit the settings screen's enable switch owns |
+| Link not running | Start it (`ServiceController.start`) |
+| Link running | Stop it (`ServiceController.stop`) |
+
+The tap is also the normal way the link gets started at all — nothing starts it by itself (§8) —
+and the field's `TAP TO START` label says so.
 
 Demo mode wins because a field cycling synthetic frames is showing no real gap at all; getting
 out of that always beats whatever else the tap could have meant. It also gives demo mode an exit
@@ -255,9 +259,10 @@ The field is RemoteViews inflated in **Karoo's** process, so the tap cannot call
 directly — the only channel is a `PendingIntent`. `service/FieldTapReceiver` owns both ends: the
 `PendingIntent` the field attaches with `setOnClickPendingIntent`, and the receiver it fires. The
 receiver stays `exported="false"`: we create the `PendingIntent`, so the broadcast is dispatched
-under our identity even though Karoo's process is what sends it. It writes the flipped setting
-through `updateSettings {}` and hands the stored result to `ServiceController.sync`, so the link
-comes up or goes down on the same code path as every other trigger.
+under our identity even though Karoo's process is what sends it. Being *sent* by Karoo, which is
+on screen, is what matters for starting the link: the service it starts is allowed GPS (§8). The
+receiver reads "running" from `GapRepository` and starts or stops through `ServiceController`, the
+same path as the settings screen's switch.
 
 Two consequences of RemoteViews, both deliberate:
 
@@ -268,7 +273,8 @@ Two consequences of RemoteViews, both deliberate:
   editor, and there is no live link to toggle.
 
 An accidental tap can therefore switch the link off mid-ride. That is recoverable in one more tap
-— the field says `OFF` while it is — and the alternative, no mid-ride control at all, was worse.
+— the field says `TAP TO START` while it is — and the alternative, no mid-ride control at all, was
+worse.
 
 ### 7.2 Sizing the text (why the field is a plain autosizing TextView)
 
@@ -378,12 +384,28 @@ PartnerLinkService (foreground, wakelock)          PartnerRideExtension (bound b
 - `core/` has no Android dependencies; monotonic "now" values are injected as parameters, which
   is what makes the whole protocol/geometry layer unit-testable on the JVM.
 - Settings (`PartnerRideSettings`) persist as a JSON blob in a preferences DataStore
-  (`ignoreUnknownKeys` for forward/backward APK compatibility). `ServiceController.sync()` is the
-  single authority mapping the enable toggle to service start/stop. It is deliberately called
-  from **every** path that can want the link up — the extension service (Karoo OS binding us),
-  a `BOOT_COMPLETED` receiver, `MainActivity.onResume`, the data field's `startView`, and the
-  settings UI — because Karoo OS may bind the extension late (or only once the data field is
-  first shown); with redundant triggers no single bind order is load-bearing.
+  (`ignoreUnknownKeys` for forward/backward APK compatibility). Whether the link runs is **not**
+  a setting.
+- **The link only starts on a user action**: a tap on the data field (§7.1) or the settings
+  screen's switch, both through `ServiceController.start`. Nothing starts it by itself — no boot
+  receiver, not Karoo OS binding the extension, not the field's `startView`, not opening the app —
+  and the service is `START_NOT_STICKY`, so a process the system kills stays down. After every
+  power-on the field therefore reads `TAP TO START`.
+
+  This is forced by Android 11+ (Karoo 3): a location foreground service *started while the app
+  is in the background* is denied location, silently — `LocationManager` accepts the registration
+  and never delivers. Up to 1.6.4 the link started exactly that way after every power-on (a
+  `BOOT_COMPLETED` receiver, the extension bind and `startView` all started it), so both devices
+  sat on `NO GPS`, and since advertising only happens per own fix, broadcast nothing. A field tap
+  is sent by the Karoo app, which is on screen, and the settings screen is our own activity, so a
+  service started from either is allowed GPS. `ACCESS_BACKGROUND_LOCATION` would also lift the
+  restriction, but was rejected: it is one more permission, granted on a separate settings page,
+  that riders would have to understand — just to make the link start without a tap. As a side
+  effect the link uses no battery on days it isn't wanted.
+
+  `startView` and `MainActivity.onResume` still publish missing permissions to `GapRepository`
+  (`ServiceController.recordMissingPermissions`), so the field says `NO PERM` rather than a
+  `TAP TO START` that could not work.
 - The in-ride field is RemoteViews-only (Karoo renders it in its own process): a layout from
   `res/layout/`, no custom `View` classes, and the field state re-rendered rather than animated.
   Glance was used for this until the field became an autosizing `TextView`, and is no longer a
@@ -535,4 +557,6 @@ To upgrade a rider's Karoo in place, build the release APK locally with the real
   (satellite time for the packet timestamps), wakelock, gap alert.
 - `extension/` — the karoo-ext extension service and the data field (RemoteViews from
   `res/layout/partner_gap_field.xml`, on the rounded `res/drawable/field_bg_*.xml`).
-- `screens/MainScreen.kt` — settings UI (enable, couple code, alert, status).
+- `service/ServiceController.kt` — the only place that starts or stops the link, and why it
+  only ever does so on a user action (§8).
+- `screens/MainScreen.kt` — settings UI (start/stop, couple code, alert, status).

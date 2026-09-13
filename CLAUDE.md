@@ -96,18 +96,20 @@ Two cooperating services in one process, bridged by a `StateFlow` in `core/GapRe
 
 - `service/PartnerLinkService` — foreground service (wakelock), owns all I/O: BLE advertising
   (payload updated in place per GPS fix), BLE scanning, GPS via `LocationManager`, and the gap
-  alert. Runs whenever the extension is enabled, independent of ride recording.
+  alert. Runs from a user starting it until they stop it, independent of ride recording.
 - `extension/PartnerRideExtension` — the karoo-ext service Karoo OS binds to; exposes
   `PartnerRideDataType` (RemoteViews from `res/layout/partner_gap_field.xml`).
 - `core/` — pure Kotlin, no Android dependencies, fully unit-tested on the JVM. Monotonic "now"
   values are passed in as parameters so the logic stays testable; only the service layer touches
   `SystemClock`.
 
-`ServiceController.sync()` is the only place that starts/stops the link service. It is called
-redundantly from every path that can want the link up — the extension service, a
-`BOOT_COMPLETED` receiver, `MainActivity.onResume`, the data field's `startView`, and the
-settings UI — because Karoo OS may bind the extension late (or only once the data field is
-shown). Don't remove one of these triggers because it "looks duplicated".
+`ServiceController` is the only place that starts/stops the link service, and it starts it
+**only on a user action**: a tap on the data field or the settings screen's switch. After every
+power-on the field reads `TAP TO START`. Don't add an automatic start (boot receiver, extension
+`onCreate`, `startView`, `MainActivity.onResume`, `START_STICKY`) — Android 11+ silently gives a
+location foreground service started from the background no GPS, which is exactly how 1.6.4 and
+earlier left both devices on `NO GPS` after power-on (TECHNICAL.md §8). Requiring
+`ACCESS_BACKGROUND_LOCATION` instead was considered and rejected as too confusing for riders.
 
 ## Invariants that are easy to break
 
@@ -138,7 +140,7 @@ shown). Don't remove one of these triggers because it "looks duplicated".
   background is a rounded-rect drawable matching Karoo's own field corners (TECHNICAL.md §7.2,
   §7.3). Don't set the field's text size from code — `setTextSize` is a no-op under autosizing —
   and don't give it a flat background color, which squares off those corners.
-- A tap on the field leaves demo mode, or else toggles `enabled` (TECHNICAL.md §7.1). The field
+- A tap on the field leaves demo mode, or else starts/stops the link (TECHNICAL.md §7.1). The field
   runs in Karoo's process, so the only channel back is a `PendingIntent` — `FieldTapReceiver`
   owns both it and the unexported receiver it fires. Re-attach it on every emission (each update
   is a fresh `RemoteViews`, not a patch) and never in `config.preview`.

@@ -69,7 +69,8 @@ import kotlin.math.abs
  * Foreground service that runs the whole partner link: broadcasts our own GPS position over
  * connectionless BLE advertising, scans for the partner's broadcasts, and feeds the [GapEngine].
  *
- * Active whenever the extension is enabled in settings, independent of ride recording. Both
+ * Runs from the moment the rider starts it (data field tap or settings switch — never by itself,
+ * see [ServiceController]) until they stop it, independent of ride recording. Both
  * devices run identical roles — no pairing, no GATT, no reconnect logic; recovery after the
  * partner goes out of range is inherent to the stateless design.
  */
@@ -270,10 +271,14 @@ class PartnerLinkService : Service() {
         }
     }
 
-    // Stopping goes through ServiceController.sync -> stop(), which uses stopService(); there is
-    // no stop action to handle here (the ACTION_STOP branch that used to live here was dead code,
-    // with nothing anywhere constructing that intent).
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    // Stopping goes through ServiceController.stop(), which uses stopService(); there is no stop
+    // action to handle here (the ACTION_STOP branch that used to live here was dead code, with
+    // nothing anywhere constructing that intent).
+    //
+    // Not sticky: a service the system recreates after killing the process is a background start,
+    // which gets no GPS on Android 11+ (see ServiceController). It would come back as a NO GPS
+    // that broadcasts nothing; staying down shows TAP TO START, which one tap actually fixes.
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
 
     override fun onDestroy() {
         scope.cancel()
@@ -366,9 +371,6 @@ class PartnerLinkService : Service() {
                     stopScan()
                     stopAdvertising()
                 }
-            }
-            if (!new.enabled) {
-                stopSelf()
             }
         }
     }

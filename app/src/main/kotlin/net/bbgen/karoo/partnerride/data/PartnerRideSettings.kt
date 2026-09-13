@@ -11,7 +11,6 @@ import kotlinx.serialization.json.Json
 
 @Serializable
 data class PartnerRideSettings(
-    val enabled: Boolean = false,
     val coupleCode: String = "",
     val alertEnabled: Boolean = false,
     val alertThresholdMeters: Int = 100,
@@ -23,7 +22,8 @@ data class PartnerRideSettings(
     val demoMode: Boolean = false,
     // Add fields with defaults only — old persisted JSON must keep decoding. Removed fields are
     // fine too: ignoreUnknownKeys below means old JSON with a since-removed key (e.g. the former
-    // "scanMode") just has that key ignored on decode.
+    // "scanMode", or "enabled" from before the link became tap-to-start) just has that key
+    // ignored on decode.
 )
 
 private val Context.dataStore by preferencesDataStore(name = "partnerride_settings")

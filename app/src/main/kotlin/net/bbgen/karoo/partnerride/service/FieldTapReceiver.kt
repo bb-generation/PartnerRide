@@ -7,14 +7,22 @@ import android.content.Intent
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import net.bbgen.karoo.partnerride.data.afterFieldTap
+import net.bbgen.karoo.partnerride.core.GapRepository
+import net.bbgen.karoo.partnerride.data.FieldTapAction
+import net.bbgen.karoo.partnerride.data.fieldTapAction
+import net.bbgen.karoo.partnerride.data.streamSettings
 import net.bbgen.karoo.partnerride.data.updateSettings
 
 /**
- * Handles a tap on the ride data field: leaves demo mode, or toggles the link on/off
- * ([afterFieldTap] decides which).
+ * Handles a tap on the ride data field: leaves demo mode, or starts/stops the link
+ * ([fieldTapAction] decides which).
+ *
+ * This is the main way the link gets started, and it has to be: the tap's broadcast is sent by
+ * the Karoo app, which is on screen, so a service started from here is allowed GPS on Android 11+
+ * where a background start is not (see [ServiceController]).
  *
  * The field is RemoteViews inflated in *Karoo's* process, so the tap cannot call back into us
  * directly — the only channel is a [PendingIntent], and [pendingIntent] builds the one the data
@@ -25,17 +33,20 @@ class FieldTapReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_FIELD_TAP) return
         val app = context.applicationContext
-        // Writing the settings is an async DataStore transaction: hold the broadcast open.
+        // Reading (and for demo mode, writing) the settings is async: hold the broadcast open.
         val pending = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
             try {
-                // Same reasoning as BootReceiver: goAsync() gives ~10 s before the system calls
-                // it an ANR, so time-box the write rather than risk never reaching finish().
+                // goAsync() gives ~10 s before the system calls it an ANR, so time-box the
+                // DataStore access rather than risk never reaching finish().
                 withTimeout(TAP_TIMEOUT_MS) {
-                    // updateSettings returns the stored result, so the sync below acts on what
-                    // was actually written rather than on a separately-collected snapshot.
-                    val updated = app.updateSettings { it.afterFieldTap() }
-                    ServiceController.sync(app, updated)
+                    val demoMode = app.streamSettings().first().demoMode
+                    val running = GapRepository.state.value.serviceRunning
+                    when (fieldTapAction(demoMode, running)) {
+                        FieldTapAction.LEAVE_DEMO_MODE -> app.updateSettings { it.copy(demoMode = false) }
+                        FieldTapAction.START_LINK -> ServiceController.start(app)
+                        FieldTapAction.STOP_LINK -> ServiceController.stop(app)
+                    }
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Field tap failed", e)

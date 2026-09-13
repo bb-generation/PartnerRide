@@ -25,9 +25,9 @@ class FieldStateTest {
     )
 
     @Test
-    fun `service not running shows OFF on gray`() {
+    fun `service not running shows TAP TO START on gray`() {
         val display = FieldState.build(PartnerRideState(), now)
-        assertEquals("OFF", display.text)
+        assertEquals("TAP TO START", display.text)
         assertEquals(FieldBackground.GRAY, display.background)
     }
 
@@ -142,7 +142,7 @@ class FieldStateTest {
 
     @Test
     fun `priority order surfaces the first problem to fix`() {
-        // Everything broken at once: NO PERM > OFF > NO BT > NO GPS > NO SIGNAL.
+        // Everything broken at once: NO PERM > TAP TO START > NO BT > NO GPS > NO SIGNAL.
         var state = PartnerRideState(
             serviceRunning = false,
             bluetoothReady = false,
@@ -150,7 +150,7 @@ class FieldStateTest {
         )
         assertEquals("NO PERM", FieldState.build(state, now).text)
         state = state.copy(missingPermissions = emptyList())
-        assertEquals("OFF", FieldState.build(state, now).text)
+        assertEquals("TAP TO START", FieldState.build(state, now).text)
         state = state.copy(serviceRunning = true)
         assertEquals("NO BT", FieldState.build(state, now).text)
         state = state.copy(bluetoothReady = true)

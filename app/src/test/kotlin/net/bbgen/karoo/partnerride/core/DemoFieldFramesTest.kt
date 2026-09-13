@@ -25,7 +25,7 @@ class DemoFieldFramesTest {
         Pair("NO BT", FieldBackground.GRAY),
         Pair("NO CODE", FieldBackground.GRAY),
         Pair("NO PERM", FieldBackground.GRAY),
-        Pair("OFF", FieldBackground.GRAY),
+        Pair("TAP TO START", FieldBackground.GRAY),
     )
 
     private fun rendered(state: PartnerRideState) = FieldState.build(state, DemoFieldFrames.NOW)
