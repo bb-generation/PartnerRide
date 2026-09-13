@@ -11,8 +11,6 @@ import kotlinx.coroutines.flow.update
  */
 data class PartnerRideState(
     val serviceRunning: Boolean = false,
-    /** When the running link service started; null while it isn't running. */
-    val serviceStartedElapsedMs: Long? = null,
     val bluetoothReady: Boolean = false,
     val advertising: Boolean = false,
     val scanning: Boolean = false,
@@ -49,7 +47,6 @@ object GapRepository {
     fun serviceStopped(message: String? = null) = update {
         it.copy(
             serviceRunning = false,
-            serviceStartedElapsedMs = null,
             advertising = false,
             scanning = false,
             statusMessage = message,

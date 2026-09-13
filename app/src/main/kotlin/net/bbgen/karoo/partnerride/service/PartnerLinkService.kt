@@ -248,8 +248,6 @@ class PartnerLinkService : Service() {
         GapRepository.update {
             it.copy(
                 serviceRunning = true,
-                // Starts FieldState's grace period for Bluetooth still coming up.
-                serviceStartedElapsedMs = SystemClock.elapsedRealtime(),
                 missingPermissions = emptyList(),
                 statusMessage = null,
                 bluetoothReady = bluetoothAdapter?.isEnabled == true,

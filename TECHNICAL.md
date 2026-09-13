@@ -223,7 +223,7 @@ matching row from the top wins**, so the field always names the first problem to
 |---|---|---|
 | Runtime permissions missing | `NO PERM` | gray |
 | Link service not running (after every power-on, or stopped) | `TAP TO START` | gray |
-| Bluetooth off (not in the first 5 s after a start, see below) | `NO BT` | gray |
+| Bluetooth off | `NO BT` | gray |
 | Couple code empty or < 6 digits | `NO CODE` | gray |
 | No own GPS fix yet, or own fix > 10 s old (not broadcasting) | `NO GPS` | gray |
 | No partner packet since the service started | `NO SIGNAL` | gray |
@@ -236,16 +236,6 @@ wide-gap zone and for losing a previously established partner signal mid-ride. T
 distinction meaningful, each service start resets the session in `GapRepository` (last
 packet/fix ages, smoothed gap), so a new session begins at the gray `NO SIGNAL`, never at a
 stale red one carried over from an earlier run.
-
-**Bluetooth start grace.** For the first 5 s after the link service starts
-(`FieldState.BLUETOOTH_START_GRACE_MS`, measured from `PartnerRideState.serviceStartedElapsedMs`)
-Bluetooth being off is not reported, and the next matching row shows instead — usually `NO GPS`.
-Stopping the link dispatches `ReleaseBluetooth`, after which Karoo OS switches the radio off; the
-next start's `RequestBluetooth` brings it back, which took ~2 s on a Karoo 3. Without the grace a
-stop followed by a start flashed `NO BT` for those 2 s, as if the rider had something to fix. 5 s
-covers the usual 1–3 s radio start with margin for the 1 Hz render, while a radio that really
-doesn't come back still shows up quickly. The grace only covers the start: Bluetooth going off
-mid-ride (`ACTION_STATE_CHANGED`) still shows `NO BT` on the next render.
 
 ### 7.1 Tapping the field
 
@@ -474,7 +464,6 @@ Consequences:
 | Zone thresholds / hysteresis | 15 m, 50 m / ±1 m | `ZoneTracker` |
 | Fresh / signal-lost limit | 5 s / 60 s | `FieldState.FRESH_MS` / `FieldState.SIGNAL_LOST_MS` |
 | Own-fix stale limit | 10 s | `FieldState.OWN_FIX_STALE_MS` |
-| Bluetooth start grace (no `NO BT` right after a start) | 5 s | `FieldState.BLUETOOTH_START_GRACE_MS` |
 | Data field font size range | 10-200 sp, autosized | `res/layout/partner_gap_field.xml` |
 | Data field horizontal padding | 4 dp | `res/layout/partner_gap_field.xml` |
 | Data field corner radius | 10 dp | `field_corner_radius` (`res/values/dimens.xml`) |
