@@ -36,6 +36,7 @@
     <string name="status_link_start_failed">Link could not start</string>
     <string name="status_no_couple_code">Enter the 6-digit couple code — the link is off until you do</string>
     <string name="grant_permissions">Grant permissions</string>
+    <string name="background_location_help">Set Location to \"Allow all the time\" — otherwise PartnerRide gets no GPS after the Karoo is switched on.</string>
 
     <!-- Only ever visible once the hidden 7-tap gesture on the title has switched demo mode on. -->
     <string name="demo_title">Demo mode</string>

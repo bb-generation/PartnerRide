@@ -407,17 +407,28 @@ places, and each step has a permission cost:
 
 | Capability | karoo-ext path | Why PartnerRide can't use it | Resulting permission |
 |---|---|---|---|
-| Own position | `OnLocationChanged` event (no prompt) | Delivers only `lat`/`lng`/`orientation` — no `Location.getTime()` (the satellite time base of §5), no `getSpeed()`/`getBearing()` (dead-reckoning inputs of §6). Stamping fixes at receipt time would add an unknown 0.1–1 s of pipeline latency ≈ 1–10 m of error at riding speed | `ACCESS_FINE_LOCATION` for `LocationManager` (GPS provider) |
+| Own position | `OnLocationChanged` event (no prompt) | Delivers only `lat`/`lng`/`orientation` — no `Location.getTime()` (the satellite time base of §5), no `getSpeed()`/`getBearing()` (dead-reckoning inputs of §6). Stamping fixes at receipt time would add an unknown 0.1–1 s of pipeline latency ≈ 1–10 m of error at riding speed | `ACCESS_FINE_LOCATION` for `LocationManager` (GPS provider), plus `ACCESS_BACKGROUND_LOCATION` on API 30+ (see below) |
 | Device-to-device link | None — the SDK's Bluetooth surface is the *managed sensor framework* (`scansDevices`/`connectDevice`), where Karoo owns pairing and connections | The transport is connectionless raw BLE advertising + scanning (§2), which the sensor framework cannot express | `BLUETOOTH_ADVERTISE` + `BLUETOOTH_SCAN` (API 31+) |
 
 Consequences:
 
-- The two runtime prompts (location, nearby devices) are stock AOSP dialogs; they cannot be
+- The runtime prompts (location, nearby devices) are stock AOSP dialogs; they cannot be
   themed and are shown once per install. `RequestBluetooth` (§2) only asks Karoo OS to power the
   radio — it does not substitute for the app-level Android permissions.
 - `BLUETOOTH_SCAN` is declared *without* `neverForLocation`: the app holds fine location anyway,
   and asserting the flag risks the OS filtering beacon-like advertisements out of scan results —
   exactly what our manufacturer-data packets look like.
+- Background location is required on API 30+ (Karoo 3), and is the reason for a third step.
+  Android 11+ denies location to a foreground service *started while the app is in the
+  background*, and after power-on every start is: the `BOOT_COMPLETED` receiver, Karoo OS binding
+  the extension, the data field's `startView` (§8). The denial is silent — `LocationManager`
+  accepts the registration and never delivers — so both devices sat on `NO GPS`, broadcasting
+  nothing, until an enable toggle restarted the service from a visible context (the settings
+  screen, or the field tap's `PendingIntent` sent by Karoo). Holding `ACCESS_BACKGROUND_LOCATION`
+  is the only thing that lifts the restriction. Android only grants it on a separate settings page
+  ("Allow all the time"), never in the same request as foreground location, so `MainActivity`
+  requests it as its own step right after the others (`core/PermissionRequest`). Until it is
+  granted the field reads `NO PERM`. Karoo 2 (API 27) predates the restriction and doesn't need it.
 - For prompt-free installs (e.g. test devices), the permissions can be pre-granted over adb with
   `pm grant` (§11.2).
 - A degraded mode using karoo-ext location (no prompts, worse accuracy) is architecturally
@@ -498,10 +509,12 @@ The user-facing route (Hammerhead Companion app, no cables) is in
 Both devices must run the same APK version; the packet format is validated strictly (§4), so
 mismatched versions never see each other.
 
-For prompt-free installs, the two runtime permissions (§9) can be pre-granted:
+For prompt-free installs, the runtime permissions (§9) can be pre-granted
+(`ACCESS_BACKGROUND_LOCATION` after `ACCESS_FINE_LOCATION`, and on the Karoo 3 only):
 
 ```
 adb shell pm grant net.bbgen.karoo.partnerride android.permission.ACCESS_FINE_LOCATION
+adb shell pm grant net.bbgen.karoo.partnerride android.permission.ACCESS_BACKGROUND_LOCATION
 adb shell pm grant net.bbgen.karoo.partnerride android.permission.BLUETOOTH_SCAN
 adb shell pm grant net.bbgen.karoo.partnerride android.permission.BLUETOOTH_ADVERTISE
 ```

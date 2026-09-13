@@ -96,6 +96,7 @@ see each other.
 ## First-time setup (both devices)
 
 1. On the Karoo: open PartnerRide. Grant the Bluetooth and Location permissions when prompted.
+   On a Karoo 3 a settings page for Location follows — pick **Allow all the time**, then go back.
 2. **Device A:** tap **Generate** — it creates a 6-digit code like `428713`.
 3. **Device B:** type exactly those 6 digits into the couple-code field.
 4. Enable **PartnerRide enabled** on both devices. **Your Karoo only starts sending once it has
@@ -165,7 +166,7 @@ launch.
 bikes wheel to wheel, a Karoo 3 on each, typically show 2–3 m. Read a single-digit number as
 "together", not as an exact distance.
 
-## About the two Android permission pop-ups
+## About the Android permission pop-ups
 
 On first launch PartnerRide asks for **location** and **nearby devices (Bluetooth)** using the
 plain Android system dialogs. They look out of place on the Karoo — no app can style those
@@ -179,7 +180,13 @@ dialogs — and you won't have seen them from most other extensions. That's expe
 - The direct Bluetooth link between the two Karoos is something Karoo OS offers no interface
   for, so the nearby-devices permission is genuinely required.
 
-Both dialogs appear **once per install**; after granting, they never return.
+On a Karoo 3 a third step follows: the Location settings page, where **Allow all the time** has
+to be picked. Android doesn't allow that choice in the dialog itself. Without it Android withholds
+GPS from PartnerRide whenever it starts by itself — which is every time the Karoo is switched on —
+so the field would stay on `NO GPS` until you toggled PartnerRide off and on. With it missing the
+field shows `NO PERM` instead, so this can't go unnoticed.
+
+All of these appear **once per install**; after granting, they never return.
 
 ## Known limitations
 

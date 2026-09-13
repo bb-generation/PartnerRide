@@ -121,6 +121,12 @@ shown). Don't remove one of these triggers because it "looks duplicated".
 - The packet format is versioned (`PacketCodec.VERSION`); anything failing validation is silently
   dropped. The 19-byte layout is fixed for version 1; an encrypted format would be version 2.
   Both devices must run the same app version.
+- `ACCESS_BACKGROUND_LOCATION` is a required permission on API 30+, although the service is a
+  foreground service. After power-on it is always started from the background (boot receiver,
+  extension bind, `startView`), and Android 11+ silently withholds location from such a service
+  unless the app holds background location: both devices sat on NO GPS, broadcasting nothing,
+  until a manual toggle. It must be requested alone and after foreground location
+  (`core/PermissionRequest`). Don't drop it as "unneeded for a foreground service".
 - BLE scans are stopped/restarted every ~20 min (Android demotes scans >30 min old), and scan
   starts are rate-limited in `startScanIfAllowed` (Android blocks >5 starts per 30 s).
 - All BLE state mutation is confined to the `partnerride-link` handler thread — BLE callbacks and

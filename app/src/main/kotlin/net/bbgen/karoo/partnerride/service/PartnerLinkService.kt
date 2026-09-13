@@ -58,6 +58,7 @@ import net.bbgen.karoo.partnerride.core.GapResult
 import net.bbgen.karoo.partnerride.core.GpsFix
 import net.bbgen.karoo.partnerride.core.PacketCodec
 import net.bbgen.karoo.partnerride.core.PartnerPacket
+import net.bbgen.karoo.partnerride.core.PermissionRequest
 import net.bbgen.karoo.partnerride.core.Timestamps
 import net.bbgen.karoo.partnerride.core.ZoneTracker
 import net.bbgen.karoo.partnerride.core.roundGapForDisplay
@@ -889,6 +890,15 @@ class PartnerLinkService : Service() {
         /** Runtime permissions the link needs on this device's API level. */
         fun requiredPermissions(): List<String> = buildList {
             add(Manifest.permission.ACCESS_FINE_LOCATION)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                // Android 11+ denies location to a foreground service started while the app is in
+                // the background — and after boot every start is: BootReceiver, Karoo OS binding
+                // the extension, the data field's startView. LocationManager then simply never
+                // delivers, and the field sat on NO GPS (with nothing broadcast to the partner)
+                // until a toggle restarted the service from a visible context. Background location
+                // is the only thing that lifts that restriction. Karoo 2 (API 27) predates it.
+                add(PermissionRequest.BACKGROUND_LOCATION)
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 add(Manifest.permission.BLUETOOTH_SCAN)
                 add(Manifest.permission.BLUETOOTH_ADVERTISE)

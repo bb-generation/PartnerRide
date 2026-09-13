@@ -42,6 +42,7 @@ import net.bbgen.karoo.partnerride.BuildConfig
 import net.bbgen.karoo.partnerride.R
 import net.bbgen.karoo.partnerride.core.CoupleCode
 import net.bbgen.karoo.partnerride.core.GapRepository
+import net.bbgen.karoo.partnerride.core.PermissionRequest
 import net.bbgen.karoo.partnerride.data.PartnerRideSettings
 import net.bbgen.karoo.partnerride.data.streamSettings
 import net.bbgen.karoo.partnerride.data.updateSettings
@@ -133,6 +134,11 @@ fun MainScreen(
                 stringResource(R.string.status_permissions_missing),
                 color = MaterialTheme.colorScheme.error,
             )
+            if (PermissionRequest.BACKGROUND_LOCATION in missingPermissions) {
+                // Granted on a settings page rather than a dialog, and picking "Allow only while
+                // using the app" there leaves the link without GPS after every power-on.
+                Text(stringResource(R.string.background_location_help))
+            }
             Button(onClick = onRequestPermissions) {
                 Text(stringResource(R.string.grant_permissions))
             }
