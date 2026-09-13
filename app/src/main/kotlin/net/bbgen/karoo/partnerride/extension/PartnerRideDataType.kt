@@ -13,7 +13,6 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -56,10 +55,11 @@ class PartnerRideDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) 
                 )
                 awaitCancellation()
             }
-            // The field being on screen means the user wants the link up: one of the redundant
-            // start triggers (with boot receiver and app open) so no single bind order is
-            // load-bearing.
-            ServiceController.sync(context.applicationContext, context.streamSettings().first())
+            // Only *report* missing permissions, so the field says NO PERM rather than a TAP TO
+            // START that could not work. Never start the link from here: this runs in the
+            // background, and a service started from the background gets no GPS on Android 11+
+            // (see ServiceController). The tap on the field is what starts it.
+            ServiceController.recordMissingPermissions(context.applicationContext)
             // Re-render on every state change and once per second (staleness ages tick), but
             // pace it ourselves: karoo-ext drops any updateView within ~900 ms of the previous
             // one, so emitting faster meant a fresh packet landing just after a tick was
@@ -144,8 +144,8 @@ private fun FieldBackground.textColor(): Int = when (this) {
  * The field as RemoteViews. Only the text, its color and the background shape are set — the text
  * *size* is the layout's job, and setting it here would be ignored anyway while autosizing is on.
  *
- * [clickable] attaches the tap handler ([FieldTapReceiver]: leave demo mode, else toggle the
- * link). It has to be re-attached on every emission, because each update ships a whole new
+ * [clickable] attaches the tap handler ([FieldTapReceiver]: leave demo mode, else start or stop
+ * the link). It has to be re-attached on every emission, because each update ships a whole new
  * RemoteViews rather than patching the one on screen. Off in the page editor, where a tap belongs
  * to the editor and there is no live link to toggle.
  */

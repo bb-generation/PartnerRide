@@ -17,7 +17,7 @@ data class FieldDisplay(
  * the field shows. Pure Kotlin so every transition is unit-testable on the JVM.
  *
  * When several things are wrong the first matching state wins, ordered so the label always names
- * the first problem the rider has to fix: permissions > enabled > Bluetooth > own GPS > partner
+ * the first problem the rider has to fix: permissions > running > Bluetooth > own GPS > partner
  * signal. Gray backgrounds mean "link not working, nobody is being dropped"; red is reserved for
  * the wide-gap zone and for losing a previously established partner signal mid-ride.
  */
@@ -33,7 +33,9 @@ object FieldState {
 
     fun build(state: PartnerRideState, nowElapsedMs: Long): FieldDisplay {
         if (state.missingPermissions.isNotEmpty()) return grayLabel("NO PERM")
-        if (!state.serviceRunning) return FieldDisplay("OFF", FieldBackground.GRAY)
+        // Not an error: the link only ever starts from a user action (TECHNICAL.md §8), so after
+        // every power-on this is what the field shows — and it says how to get out of it.
+        if (!state.serviceRunning) return grayLabel("TAP TO START")
         if (!state.bluetoothReady) return grayLabel("NO BT")
         // Nothing is broadcast or matched without a full 6-digit code, so say so rather than
         // sitting on NO SIGNAL forever.

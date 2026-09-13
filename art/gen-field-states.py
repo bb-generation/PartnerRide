@@ -47,7 +47,7 @@ FRAMES = {
     16: "no-bt",
     17: "no-code",
     18: "no-perm",
-    19: "off",
+    19: "tap-to-start",
 }
 
 

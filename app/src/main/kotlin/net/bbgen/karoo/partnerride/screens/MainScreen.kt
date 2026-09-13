@@ -85,9 +85,9 @@ fun MainScreen(
             // Transform inside the DataStore transaction, not against the collected `settings`
             // snapshot: that snapshot lags the store, so two quick edits (generating a code and
             // then flipping a switch) could both start from the same stale value and the second
-            // write would silently revert the first.
-            val new = context.updateSettings(transform)
-            ServiceController.sync(context, new)
+            // write would silently revert the first. The running link picks the change up from
+            // its own settings collector.
+            context.updateSettings(transform)
         }
     }
 
@@ -122,10 +122,15 @@ fun MainScreen(
         )
 
         // ---------------- enable ----------------
+        // Shows and drives whether the link is running right now — nothing persisted, the same
+        // state a tap on the data field flips. The link never starts by itself (ServiceController),
+        // so after every power-on this is off until the rider switches it on or taps the field.
         LabeledSwitch(
             label = stringResource(R.string.setting_enabled),
-            checked = settings.enabled,
-            onCheckedChange = { update { s -> s.copy(enabled = it) } },
+            checked = linkState.serviceRunning,
+            onCheckedChange = { on ->
+                if (on) ServiceController.start(context) else ServiceController.stop(context)
+            },
         )
 
         if (missingPermissions.isNotEmpty()) {
