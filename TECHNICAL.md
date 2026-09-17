@@ -57,6 +57,49 @@ radios, so the service dispatches karoo-ext's `RequestBluetooth` on start and
 `ReleaseBluetooth` on stop. All scan/advertise callbacks are marshalled onto a dedicated
 `HandlerThread`; no BLE work happens on the main thread.
 
+### 2.1 Measured battery cost
+
+Continuous scanning, ~100 ms advertising, 1 Hz GPS and a partial wakelock are not free. Measured
+on a **Karoo 3** from its own `.fit` recordings — 13 rides on different days, five with the link
+running, eight without:
+
+| | Extension off | Extension on |
+|---|---|---|
+| Rides | 8 | 5 |
+| Total measured time | 19.7 h | 21.9 h |
+| Total battery used | 124 points | 202 points |
+| Average ride length | 2 h 39 min | 4 h 30 min |
+| Average distance | 58.9 km | 76.8 km |
+| **Mean drain** | **6.32 %/h** | **9.25 %/h** |
+| Median drain | 6.31 %/h | 9.34 %/h |
+| Range | 5.83 – 6.92 %/h | 8.82 – 9.62 %/h |
+| Std. deviation | 0.37 | 0.30 |
+| Pooled (total points ÷ total hours) | 6.31 %/h | 9.24 %/h |
+| Runtime from 100 % | ~15.8 h | ~10.8 h |
+
+**Difference: +2.93 %/h, +46 %** — about five hours less runtime from a full charge. The two
+groups do not overlap (the slowest on-ride, 8.82 %/h, still drains faster than the quickest
+off-ride, 6.92 %/h) and each is tight internally (σ ≈ 0.3, Welch t = 15.6), so distance, climbing
+and ride profile matter far less than whether the link is running.
+
+**How it was measured.** Karoo `.fit` files carry the head unit's own battery level in
+`device_info` messages with `device_index == 'creator'`, in a Hammerhead **developer field**
+called `charge` (`developer_data_index = 1`, which is why many FIT tools do not show it; paired
+sensors report only a coarse `battery_status`). The Karoo writes one such message per 1 % step,
+so the first and last readings are exact 1 % transitions and rounding error in the rate is small.
+The rate is (first % − last %) divided by the time between those two readings, i.e. measured over
+the logged window rather than the whole recording — the first reading appears a few minutes in and
+always at 99 % or below, so the true start level is unknown.
+
+**Caveats.** This is field data, not a controlled experiment. The two groups differ in more than
+the extension: ride length and time of day — and with them daylight and backlight level — track
+the grouping, and the FIT file records neither screen brightness nor navigation use, connectivity
+or GPS mode. So +2.93 %/h is an upper bound on what PartnerRide itself costs rather than an
+isolated measurement of it. Temperature showed no clear effect across the sample, and start
+levels varied (82–99 %) without any visible discontinuity in the drain curve. Separating the
+confound needs the same ride profile measured both ways, or the extension logging its own screen
+brightness and CPU/wake time per ride.
+
 ## 3. Payload specification (format version 1)
 
 19 bytes of manufacturer-specific data, all multi-byte fields **big-endian**:
@@ -401,7 +444,8 @@ PartnerLinkService (foreground, wakelock)          PartnerRideExtension (bound b
   service started from either is allowed GPS. `ACCESS_BACKGROUND_LOCATION` would also lift the
   restriction, but was rejected: it is one more permission, granted on a separate settings page,
   that riders would have to understand — just to make the link start without a tap. As a side
-  effect the link uses no battery on days it isn't wanted.
+  effect the link uses no battery on days it isn't wanted (§2.1 measures what it costs on
+  the days it is).
 
   `startView` and `MainActivity.onResume` still publish missing permissions to `GapRepository`
   (`ServiceController.recordMissingPermissions`), so the field says `NO PERM` rather than a

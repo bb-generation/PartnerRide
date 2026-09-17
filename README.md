@@ -1,11 +1,8 @@
 # PartnerRide
 
-A [Hammerhead Karoo](https://www.hammerhead.io/) extension for two riders. Each Karoo sends out
-its own GPS position over Bluetooth Low Energy and picks up the partner's; a custom ride data
-field shows the live straight-line distance between the two of you, with an arrow for who is
-ahead (`42 m ▲` = partner 42 m ahead, `▼` = behind), on a green/yellow/red background.
-
-One identical app runs on both riders' devices — no pairing, no phone, no internet.
+A [Hammerhead Karoo](https://www.hammerhead.io/) extension for two riders. Each Karoo shows the
+distance to the other Karoo (`42 m ▲` = partner 42 m ahead, `▼` = behind). The position is sent
+over Bluetooth — no internet connection or phone is required!
 
 ## What you need
 
@@ -20,7 +17,7 @@ One identical app runs on both riders' devices — no pairing, no phone, no inte
 You are out riding with your partner, one of you a little ahead of the other, close enough to
 talk. Then the rider behind gets dropped:
 
-- only the rider in front got past the car or the roundabout,
+- only the rider in front was able to overtake some other bike,
 - the traffic light turns red right after the first one crosses,
 - a chain comes off, a bottle drops, a tire goes soft.
 
@@ -35,10 +32,10 @@ within sight of each other.
 
 ## See it in action
 
-| Setting it up | On a real ride |
-| :---: | :---: |
-| <img src="art/videos/install.webp" width="300" alt="Screen recording of a Karoo: opening PartnerRide from the extensions list, allowing the location and nearby-devices pop-ups, entering the couple code, adding the Partner Gap field to a ride page, and the field going from NO GPS to showing the gap to the partner"> | <img src="art/videos/ride.webp" width="300" alt="Screen recording of a Karoo on a ride: the Partner Gap field at the top of the ride page shows the partner a few meters behind, growing to 18 m on yellow and closing back to 3 m on green"> |
-| First launch, the two permission pop-ups (tap the circled buttons), couple code, adding the field. [Step by step](#first-time-setup-both-devices). | 43 seconds of a real ride, partner just behind: the gap grows to 18 m, turns yellow, and closes again. |
+<img src="art/videos/ride.webp" width="300" alt="Screen recording of a Karoo on a ride: the Partner Gap field at the top of the ride page shows the partner a few meters behind, growing to 18 m on yellow and closing back to 3 m on green">
+
+43 seconds of a real ride, partner just behind: the gap grows to 18 m, turns yellow, and closes
+again. Setting it up is [one short recording too](#first-time-setup-both-devices).
 
 ## How it works
 
@@ -102,6 +99,11 @@ see each other.
 
 ## First-time setup (both devices)
 
+<img src="art/videos/install.webp" width="300" alt="Screen recording of a Karoo: opening PartnerRide from the extensions list, allowing the location and nearby-devices pop-ups, entering the couple code, adding the Partner Gap field to a ride page, and the field going from NO GPS to showing the gap to the partner">
+
+The whole setup on a Karoo: first launch, the two permission pop-ups (tap the circled buttons),
+the couple code, adding the field, and the field going from `NO GPS` to the gap. Step by step:
+
 1. **Grant the permissions.** On the Karoo, open PartnerRide and allow Bluetooth and Location
    when asked.
 
@@ -136,10 +138,25 @@ see each other.
 7. Optional: enable the **Gap alert** and set a threshold (default 100 m). It beeps and flashes
    once each time the smoothed gap first exceeds the threshold, and re-arms after the gap closes.
 
-## Every ride
+## Battery usage
 
-PartnerRide uses a lot of battery — Bluetooth and GPS run the whole time — so it never starts by
-itself. It is always off after the Karoo is switched on, and has to be started for each ride:
+PartnerRide uses a lot of battery — Bluetooth and GPS run the whole time. Measured on a Karoo 3
+over real rides:
+
+| | PartnerRide off | PartnerRide on |
+|---|---|---|
+| Battery drain | 6.3 %/h | 9.3 %/h |
+| Runtime from a full charge | ~15.8 h | ~10.8 h |
+
+That is about 46 % faster drain, or roughly five hours less runtime. These are real-world figures
+rather than a controlled measurement — [TECHNICAL.md](TECHNICAL.md#21-measured-battery-cost) has
+the data behind them.
+
+That is why the link never starts by itself — on a day you don't want it, it costs nothing.
+
+## Starting it for each ride
+
+PartnerRide is always off after the Karoo is switched on, and has to be started for each ride:
 
 1. Switch on the Karoo. The field shows `TAP TO START`.
 2. **Tap the field**, on both Karoos. It shows `NO GPS` until the Karoo has a GPS fix, then
