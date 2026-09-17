@@ -138,7 +138,7 @@ the couple code, adding the field, and the field going from `NO GPS` to the gap.
 7. Optional: enable the **Gap alert** and set a threshold (default 100 m). It beeps and flashes
    once each time the smoothed gap first exceeds the threshold, and re-arms after the gap closes.
 
-## Every ride
+## Battery usage
 
 PartnerRide uses a lot of battery — Bluetooth and GPS run the whole time. Measured on a Karoo 3
 over real rides:
@@ -152,8 +152,11 @@ That is about 46 % faster drain, or roughly five hours less runtime. These are r
 rather than a controlled measurement — [TECHNICAL.md](TECHNICAL.md#21-measured-battery-cost) has
 the data behind them.
 
-So the link never starts by itself. It is always off after the Karoo is switched on, and has to
-be started for each ride:
+That is why the link never starts by itself — on a day you don't want it, it costs nothing.
+
+## Starting it for each ride
+
+PartnerRide is always off after the Karoo is switched on, and has to be started for each ride:
 
 1. Switch on the Karoo. The field shows `TAP TO START`.
 2. **Tap the field**, on both Karoos. It shows `NO GPS` until the Karoo has a GPS fix, then
