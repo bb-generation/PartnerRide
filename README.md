@@ -1,14 +1,30 @@
 # PartnerRide
 
 A [Hammerhead Karoo](https://www.hammerhead.io/) extension for two riders. Each Karoo shows the
-distance to the other Karoo (`42 m ▲` = partner 42 m ahead, `▼` = behind). The position is sent
+distance to the other Karoo (`5 m ▲` = partner 5 m ahead, `▼` = behind). The position is sent
 over Bluetooth — no internet connection or phone is required!
+
+<img src="art/field-states/green-behind.png" width="237" alt="The Partner Gap field showing 5 m and a down arrow on green: the partner is 5 m behind">
+
+- [What you need](#what-you-need)
+- [Why you'd want this](#why-youd-want-this)
+- [See it in action](#see-it-in-action)
+- [How it works](#how-it-works)
+- [Install on the Karoo](#install-on-the-karoo)
+- [First-time setup](#first-time-setup-both-devices)
+- [Battery usage](#battery-usage)
+- [Starting it for each ride](#starting-it-for-each-ride)
+- [Data field states](#data-field-states)
+- [Troubleshooting](#troubleshooting)
+- [About the two Android permission pop-ups](#about-the-two-android-permission-pop-ups)
+- [Known limitations](#known-limitations)
+- [Privacy](#privacy)
+- [Developers](#developers)
 
 ## What you need
 
 - Two Hammerhead Karoo devices (Karoo 2 or Karoo 3), one per rider.
-- PartnerRide installed on both, in the **same version** — different versions cannot see each
-  other.
+- PartnerRide installed on both.
 - Nothing else. No phone, no mobile signal, no account, no subscription. The two Karoos talk
   directly to each other.
 
@@ -65,37 +81,23 @@ positions a little further along the direction and speed that rider was travelli
 guess you would make yourself watching someone ride away from you. The displayed number is also
 averaged over the last few readings, so it doesn't flicker with normal GPS noise.
 
-## Privacy
-
-- **Nothing leaves the two bikes.** PartnerRide has no internet permission, makes no network
-  calls, and has no server, no analytics and no crash or usage reporting of any kind. Your
-  settings (couple code, alert threshold) are stored on the device only.
-- **The Bluetooth signal itself is not encrypted.** Every packet carries your live GPS position
-  (position, speed, heading) and a short tag derived from your couple code, in the clear (see
-  [TECHNICAL.md](TECHNICAL.md) for the exact layout). Anyone with the right receiver within
-  range — roughly 50–150 m, the same range the link itself works at — can read it. There is no
-  pairing or connection to keep it private, and that is exactly what lets the link work without
-  either device touching a phone or the internet. The packet format is versioned, so an
-  encrypted version could be added later without breaking older devices.
-- In practice this is the same trust model as an unencrypted power meter or heart rate
-  broadcast: someone nearby with the right receiver can listen in, but it is a live, local
-  signal, not something collected, logged or retained anywhere, by this extension or by anyone
-  else.
-
 ## Install on the Karoo
 
-Grab `app-release.apk` from the [latest release](../../releases/latest). Via the Hammerhead
-Companion app, no cables needed:
+Install it from your phone with the Hammerhead Companion app. No cables or computer are needed
+([Hammerhead's guide](https://support.hammerhead.io/hc/en-us/articles/31576497036827-Companion-App-Sideloading)):
 
 1. Install the **Hammerhead Companion** app on your phone and pair it with the Karoo.
-2. Copy `app-release.apk` to the phone (AirDrop/Drive/USB/email...).
-3. Open the APK on the phone (tap it in your file manager or the "share" sheet) and choose to
-   open/share it with the Hammerhead Companion app → it installs onto the paired Karoo.
-4. **On the Karoo, open the PartnerRide app once from the launcher** — extensions register with
-   Karoo OS only after the first launch.
+2. Open this page on your phone, long-press this link:
+   **[app-release.apk](https://github.com/bb-generation/PartnerRide/releases/latest/download/app-release.apk)**
+   (always the latest version), and choose the Hammerhead Companion app from the share menu.
+3. The Companion app shows a *Transferring* screen, and an *Install* screen appears on the Karoo.
+   Tap **Install** on the Karoo.
+4. **On the Karoo, open the PartnerRide app once from the launcher.** Extensions register with
+   Karoo OS only after their first launch.
 
-Repeat for **both** devices. Both need the same app version; mismatched versions simply won't
-see each other.
+Repeat for **both** devices. Alternatively, get the APK onto your phone any way you like, then
+open it with the Companion app. All versions are listed on the
+[releases page](https://github.com/bb-generation/PartnerRide/releases).
 
 ## First-time setup (both devices)
 
@@ -195,8 +197,6 @@ half-width cell shows the same states in a smaller font rather than cutting them
 list, both devices at a time:
 
 - **Same couple code?** All six digits, exactly the same on both.
-- **Same app version?** Different versions cannot see each other at all. This is by far the most
-  common cause.
 - **Started on both?** A field reading `TAP TO START` means that Karoo isn't running
   PartnerRide — tap it. This is needed again after every time the Karoo is switched on.
 - **Does each Karoo have a GPS fix?** Nothing is sent before the first fix — check for
@@ -239,8 +239,28 @@ Both dialogs appear **once per install**; after granting, they never return.
   centimeter truth.
 - **Straight-line distance:** on switchbacks and hairpins the distance along the road between
   you can be much longer than the displayed straight-line gap.
-- The Bluetooth signal is unencrypted — see [Privacy](#privacy) above.
+- The Bluetooth signal is unencrypted — see [Privacy](#privacy) below.
 - Exactly one partner is supported.
+- **Both Karoos need a compatible version.** Now and then a release changes the data the two
+  Karoos exchange over Bluetooth, and a device on that release can't see one on an older version.
+  If the two of you never find each other after one of you updated, update the other Karoo too.
+
+## Privacy
+
+- **Nothing leaves the two bikes.** PartnerRide has no internet permission, makes no network
+  calls, and has no server, no analytics and no crash or usage reporting of any kind. Your
+  settings (couple code, alert threshold) are stored on the device only.
+- **The Bluetooth signal itself is not encrypted.** Every packet carries your live GPS position
+  (position, speed, heading) and a short tag derived from your couple code, in the clear (see
+  [TECHNICAL.md](TECHNICAL.md) for the exact layout). Anyone with the right receiver within
+  range — roughly 50–150 m, the same range the link itself works at — can read it. There is no
+  pairing or connection to keep it private, and that is exactly what lets the link work without
+  either device touching a phone or the internet. The packet format is versioned, so an
+  encrypted version could be added later without breaking older devices.
+- In practice this is the same trust model as an unencrypted power meter or heart rate
+  broadcast: someone nearby with the right receiver can listen in, but it is a live, local
+  signal, not something collected, logged or retained anywhere, by this extension or by anyone
+  else.
 
 ## Developers
 
@@ -249,3 +269,4 @@ Both dialogs appear **once per install**; after granting, they never return.
   layout.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to report a bug or open a pull request, what is
   covered by tests, and the invariants a change must not break.
+- [LICENSE](LICENSE) — Apache License 2.0.
