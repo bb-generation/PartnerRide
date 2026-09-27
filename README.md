@@ -6,20 +6,7 @@ over Bluetooth — no internet connection or phone is required!
 
 <img src="art/field-states/green-behind.png" width="237" alt="The Partner Gap field showing 5 m and a down arrow on green: the partner is 5 m behind">
 
-- [What you need](#what-you-need)
-- [Why you'd want this](#why-youd-want-this)
-- [See it in action](#see-it-in-action)
-- [How it works](#how-it-works)
-- [Install on the Karoo](#install-on-the-karoo)
-- [First-time setup](#first-time-setup-both-devices)
-- [Battery usage](#battery-usage)
-- [Starting it for each ride](#starting-it-for-each-ride)
-- [Data field states](#data-field-states)
-- [Troubleshooting](#troubleshooting)
-- [About the two Android permission pop-ups](#about-the-two-android-permission-pop-ups)
-- [Known limitations](#known-limitations)
-- [Privacy](#privacy)
-- [Developers](#developers)
+**Quick links:** [See it in action](#see-it-in-action) · [Install on the Karoo](#install-on-the-karoo) · [First-time setup](#first-time-setup-both-devices) · [Data field states](#data-field-states)
 
 ## What you need
 
